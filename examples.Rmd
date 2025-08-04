@@ -1,0 +1,180 @@
+---
+title: "APS Data Examples"
+author: "M. Shotwell"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    code_folding: hide
+---
+
+```{r 'setup and load data', message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library('ggplot2')
+library('dplyr')
+library('tidyr')
+
+## get support functions
+source('support_functions.R')
+
+## load data from N=500 APS cohort
+load('20250731_data.RData')
+```
+
+## Calculate and plot SOFA scores
+```{r 'sofa scores'}
+
+## daily in-hospital measurements needed for SOFA are all collected at the 
+## 'Daily In-Hospital Forms' event. Each day has a separate set of fields,
+## e.g., daily_pa02_lowest_m2, daily_pa02_lowest_m1, daily_pa02_lowest_0, ...
+## which correspond to daily lowest PaO2 on day -2, -1, 0, ...
+
+## isolate the daily in-hospital data
+data_sofa <- data %>%
+
+  ## filter to the relevant event
+  filter(event_label == 'Daily In-Hospital Forms') %>%
+  
+  ## filter out any repeat instrument rows (none of the SOFA variables are
+  ## on a repeating instrument/form)
+  filter(is.na(repeat_instrument)) %>%
+  
+  ## remove the weight variable and merge it back in from the "Day 0" event
+  ## where weight is collected
+  select(-m_weight_kg) %>%
+  left_join(data %>%
+    filter(event_label == 'Day 0') %>%
+    select(record_id, m_weight_kg),
+    by='record_id') %>%
+  
+  ## ensure there is exactly one row per participant; this is good practice
+  ## because some participants will not have any records for some events; this
+  ## ensures that there is a data point for each participant, even if that data
+  ## point is NA
+  right_join(data %>%
+    filter(!duplicated(record_id)) %>%
+    select(record_id),
+    by='record_id') %>%
+  
+  ## select variables involved in SOFA calculations
+  select(
+    record_id,
+    m_weight_kg,
+    ## respiratory
+    matches('daily_pa02_lowest_(m2|m1|[0-7])'),
+    matches('daily_resp_lowest_pao2_(m2|m1|[0-7])'),
+    matches('daily_fio2_lowest_pao2_(m2|m1|[0-7])'),
+    matches('daily_o2_lowest_pao2_(m2|m1|[0-7])'),
+    matches('daily_spo2_lowest_(m2|m1|[0-7])'),
+    matches('daily_resp_lowest_(m2|m1|[0-7])'),
+    matches('daily_fio2_lowest_(m2|m1|[0-7])'),
+    matches('daily_o2_lowest_(m2|m1|[0-7])'),
+    ## coagulation
+    matches('daily_platelet_8a_(m2|m1|[0-7])'),
+    ## liver
+    matches('daily_tbili_8a_(m2|m1|[0-7])'),
+    ## cardiovascular
+    matches('daily_sbp_8a_(m2|m1|[0-7])'),
+    matches('daily_dbp_8a_(m2|m1|[0-7])'),
+    matches('daily_dopa_dose_8a_(m2|m1|[0-7])_(mcg|mcgkg)'),
+    matches('daily_dopa_dos_8a_(m2|m1|[0-7])_(mcg|mcgkg)'),
+    matches('daily_dobuta_8a_(m2|m1|[0-7])_(mcg|mcgkg)'),
+    matches('daily_epi_dose_8a_(m2|m1|[0-7])_(mcg|mcgkg)'),
+    matches('daily_ne_dose_8a_(m2|m1|[0-7])_(mcg|mcgkg)'),
+    ## CNS
+    matches('daily_gcs_8a_(m2|m1|[0-7])'),
+    ## Renal
+    matches('daily_cr_8a_(m2|m1|[0-7])')) %>%
+  
+  ## rename the columns so that the study day is always the last element
+  rename_with(~sub('(.+)_(m2|m1|[0-7])_(.+)', '\\1_\\3_\\2', x=.)) %>%
+  
+  ## pivot from wide to long with respect to days -2, -1, 0, ..., 7
+  pivot_longer(
+    cols = -c(record_id, m_weight_kg), ## pivot all columns except these
+    names_to = c('.value', 'study_day'),
+    names_pattern = '(.+)_(m2|m1|[0-7])') %>%
+  
+  ## convert study_day to numeric
+  mutate(study_day = as.numeric(sub('m', '-', study_day))) %>%
+
+  ## respiratory
+  mutate(pf_ratio = calc_pf_ratio(
+    low_pao2 = daily_pa02_lowest,
+    resp_low_pao2 = daily_resp_lowest_pao2,
+    fio2_low_pao2 = daily_fio2_lowest_pao2,
+    o2_low_pao2 = daily_o2_lowest_pao2)) %>%
+  mutate(sf_ratio = calc_sf_ratio(
+    low_spo2 = daily_spo2_lowest,
+    resp_low_spo2 = daily_resp_lowest,
+    fio2_low_spo2 = daily_fio2_lowest,
+    o2_low_spo2 = daily_o2_lowest)) %>%
+  mutate(sofa_resp = calc_sofa_resp(
+    pf_ratio = pf_ratio,
+    sf_ratio = sf_ratio)) %>%
+  
+  ## coagulation
+  mutate(sofa_coag = calc_sofa_coag(platelets = daily_platelet_8a)) %>%
+  
+  ## liver
+  mutate(sofa_livr = calc_sofa_livr(bilirubin = daily_tbili_8a)) %>%
+  
+  ## cardiovascular
+  mutate(sofa_card = calc_sofa_card(
+    sbp = daily_sbp_8a,
+    dbp = daily_sbp_8a,
+    dopa_mcg = daily_dopa_dose_8a_mcg,
+    dopa_mcgkg = daily_dopa_dos_8a_mcgkg,
+    dobu_mcg = daily_dobuta_8a_mcg,
+    dobu_mcgkg = daily_dobuta_8a_mcgkg,
+    epin_mcg = daily_epi_dose_8a_mcg,
+    epin_mcgkg = daily_epi_dose_8a_mcgkg,
+    nore_mcg = daily_ne_dose_8a_mcg,
+    nore_mcgkg = daily_ne_dose_8a_mcgkg,
+    weight_kg = m_weight_kg)) %>%
+  
+  ## CNS
+  ## calculate wither 'T' present in GCS; indicating intubated patient
+  mutate(sofa_cns_gcs_t = ifelse(is.na(daily_gcs_8a), NA, grepl('T', daily_gcs_8a))) %>%
+  ## create variable where GCS with a 'T' are set to NA
+  mutate(sofa_cns_gcs_no_t = as.numeric(daily_gcs_8a)) %>%
+  mutate(sofa_cns = calc_sofa_cns(gcs = daily_gcs_8a)) %>%
+  
+  ## Renal
+  mutate(sofa_rena = calc_sofa_rena(daily_cr_8a)) %>%
+  
+  ## Total SOFA
+  mutate(sofa_totl = sofa_resp + sofa_coag + sofa_livr + sofa_card + sofa_cns + sofa_rena)
+
+data_sofa %>%
+  select(record_id, study_day, starts_with('sofa')) %>%
+  select(-starts_with('sofa_cns_gcs'), -sofa_totl) %>%
+  pivot_longer(cols = starts_with('sofa'), names_to = 'component') %>% 
+  mutate(study_day = factor(study_day, levels=-2:7)) %>%
+  mutate(value = factor(value)) %>%
+  mutate(component = case_match(component,
+    "sofa_resp" ~ "Respiratory",
+    "sofa_coag" ~ "Coagulation",
+    "sofa_livr" ~ "Liver",
+    "sofa_card" ~ "Cardiovascular",
+    "sofa_cns" ~ "CNS",
+    "sofa_rena" ~ "Renal",
+    "sofa_totl" ~ "Total")) %>%
+  group_by(study_day, component, value) %>%
+  summarise(count = n(), .groups='drop') %>%
+  ggplot(aes(x=study_day, y=count, fill=value)) +
+    geom_bar(stat="identity", position='stack') +
+    facet_wrap(~component) +
+  labs(x='Study Day', y='Participant Count', fill='Score', title='SOFA Component Scores')
+
+data_sofa %>%
+  select(record_id, study_day, sofa_totl) %>%
+  mutate(study_day = factor(study_day, levels=-2:7)) %>%
+  mutate(sofa_totl = factor(sofa_totl)) %>%
+  group_by(study_day, sofa_totl) %>%
+  summarise(count = n(), .groups='drop') %>%
+  ggplot(aes(x=study_day, y=count, fill=sofa_totl)) +
+    geom_bar(stat="identity", position='stack') +
+    labs(x='Study Day', y='Participant Count', fill='Score', title='SOFA Total Score')
+
+```
