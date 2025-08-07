@@ -13,15 +13,47 @@ knitr::opts_chunk$set(echo = TRUE)
 library('ggplot2')
 library('dplyr')
 library('tidyr')
+library('knitr')
 
 ## get support functions
 source('support_functions.R')
 
 ## load data from N=500 APS cohort
-load('20250731_data.RData')
+## provides "data", "dictionary" and "codebook" in the working environment
+load('20250806_data.RData')
+```
+
+## Table of syndrome adjudications
+
+The code below creates a data frame with one record per participant with the consensus syndrome adjudication data for that participant.
+```{r}
+## get the field names from the syndrome adjudication form
+syndrome_fields <- dictionary %>%
+  filter(form_label == 'Syndrome Adjudication (Investigators Form) [day -2 to 7]') %>%
+  pull(field_name)
+
+syndrome_data <- data %>%
+  ## filter to the relevant event
+  filter(event_label == 'Syndrome Adjudication') %>%
+  ## make sure you dont get repeating instrument rows
+  filter(is.na(repeat_instrument)) %>%
+  ## get ID fields and syndrome adjudication fields
+  select(record_id, event_label, enrolling_center, all_of(syndrome_fields)) %>%
+  ## make sure there is one record per participant, even if no adjudication row
+  right_join(data %>% select(record_id) %>% filter(!duplicated(record_id)), 
+    by='record_id')
+
+## show a portion of the table
+syndrome_data %>% 
+  select(record_id, ards_clinical_judgement,
+    pna_clinical_judgement, sepsis_clinical_judgement) %>%
+  head() %>%
+  kable()
 ```
 
 ## Calculate and plot SOFA scores
+
+The code below converts SOFA score fields in wide format to long, computes each component of the SOFA score and the total score, and creates a figure to display them.
 ```{r 'sofa scores'}
 
 ## daily in-hospital measurements needed for SOFA are all collected at the 
