@@ -4,7 +4,7 @@ author: "M. Shotwell"
 date: "`r Sys.Date()`"
 output: 
   html_document:
-    code_folding: hide
+    code_folding: show
 ---
 
 ```{r 'setup and load data', message=FALSE}
@@ -14,6 +14,7 @@ library('ggplot2')
 library('dplyr')
 library('tidyr')
 library('knitr')
+library('gt')
 
 ## get support functions
 source('support_functions.R')
@@ -23,9 +24,94 @@ source('support_functions.R')
 load('20250806_data.RData')
 ```
 
+## Working with the codebook and dictionary
+
+The codebook shows which forms are collected at which events. For example, the Clinical Frailty Scale is collected at the "Patient/Surrogate Interview" and at each of the 3, 6, and 12 month survey events. The form is not repeating, meaning it can only be completed once per event. Repeating instruments/forms have one row per instance in the data set.
+
+```{r}
+codebook %>%
+  filter(form_label == 'Clinical Frailty Scale') %>%
+  gt()
+```
+
+The dictionary gives detailed information about each field. Consider the "frailty_base", which is a radio button field that is part of the Clinical Frailty Scale form. The dictionary gives each possible value for this field. Note that other kinds of fields, notably text fields, may have values that are less structured.
+
+```{r}
+dictionary %>% 
+  filter(field_name == 'frailty_base') %>%
+  select('field_name', 'field_type', 'form_label', 'field_label',
+    'select_choices_or_calculations', 'branching_logic') %>%
+  unclass()
+```
+
+Note the branching logic "[frailty_perf] = '1'", which specifies that the "fraily_base" field is only presented in the REDCap user interface when the value of another field [fraily_perf] takes a value '1' for the corresponding record and event. The "frailty_perf" field is used to indicate whether the Clinical Frailty Scale assessment was performed. Thus, "frailty_base" should be missing if "frailty_perf" is "No".
+
+```{r}
+dictionary %>%
+  filter(field_name == 'frailty_perf') %>%
+  select('field_name', 'field_type', 'form_label', 'field_label',
+    'select_choices_or_calculations', 'branching_logic') %>%
+  unclass()
+```
+
+We can examine whether this is true in the data by cross-tabulating the two fields at the 'Patient/Surrogate Interview' event.
+
+```{r}
+data %>%
+  ## start with list of record IDs
+  filter(!duplicated(record_id)) %>%
+  select(record_id) %>%
+  ## merge fields from clinical frailty form at the patient/surrogate interview
+  left_join(data %>%
+    filter(event_label == 'Patient/Surrogate Interview') %>%
+    filter(is.na(repeat_instrument)) %>% 
+    select(record_id, all_of(dictionary %>% 
+      filter(form_name == 'clinical_frailty_scale') %>% 
+      pull(field_name))),
+    by='record_id') %>%
+  xtabs(~ frailty_perf + is.na(frailty_base), data=., addNA=TRUE)
+```
+
+Consider the day 0 Confusion Assessment Method (CAM) assessment variable "cam_0". Here the branching logic is more complex involving two other fields. In plain English, the branching logic specifies that the CAM assessment field is only presented in the REDCap interface if the Richmond Agitation-Sedation Scale (RASS) scale was assessed on day 0 (i.e., not missing) and its value was > -4 (values -4 or -5 are non-responsive states).
+
+```{r}
+dictionary %>%
+  filter(field_name == 'cam_0') %>%
+  select('field_name', 'field_type', 'form_label', 'field_label',
+    'select_choices_or_calculations', 'branching_logic') %>%
+  unclass()
+```
+
+This branching logic can be reproduced to verify that missing values for "cam_0" are due to unsatisfied branching logic:
+
+```{r}
+data %>%
+  ## start with list of record IDs
+  filter(!duplicated(record_id)) %>%
+  select(record_id) %>%
+  ## merge fields from clinical frailty form at the patient/surrogate interview
+  left_join(data %>%
+    filter(event_label == 'Daily In-Hospital Forms') %>%
+    filter(is.na(repeat_instrument)) %>% 
+    select(record_id, all_of(dictionary %>% 
+      filter(form_name == 'sedation_and_delirium_day_2_to_7') %>% 
+      pull(field_name))),
+    by='record_id') %>%
+  ## reproduct cam_0 branching logic
+  mutate(cam_0_branching_logic = 
+    ## lowest and highest RASS are documented
+    !is.na(highestrass_orres_0) & 
+    !is.na(lowrass_orres_0) & 
+    ## at least one is > -4
+    (!(lowrass_orres_0 %in% c('-5','-4')) | 
+     !(highestrass_orres_0 %in% c('-5','-4')))) %>%
+  xtabs(~cam_0_branching_logic + is.na(cam_0), data=.)
+```
+
 ## Table of syndrome adjudications
 
 The code below creates a data frame with one record per participant with the consensus syndrome adjudication data for that participant.
+
 ```{r}
 ## get the field names from the syndrome adjudication form
 syndrome_fields <- dictionary %>%
@@ -54,6 +140,7 @@ syndrome_data %>%
 ## Calculate and plot SOFA scores
 
 The code below converts SOFA score fields in wide format to long, computes each component of the SOFA score and the total score, and creates a figure to display them.
+
 ```{r 'sofa scores'}
 
 ## daily in-hospital measurements needed for SOFA are all collected at the 
