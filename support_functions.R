@@ -1,3 +1,33 @@
+require('dplyr')
+
+## Data dictionary functions
+
+## parse the "select_choices_or_calculations" field in the data dictionary
+## for checkbox and multiple choice fields
+## choices - a string vector of length 1
+parse_choices <-  function(choices) {
+  if(length(choices) != 1)
+    stop("'choices' must have length 1")
+  keyvals <- strsplit(choices, split = ' ?\\| ?')[[1]]
+  keys <- sub('^([^,]+),.+$', '\\1', keyvals)
+  values <- sub('^[^,]+, (.+)$', '\\1', keyvals)
+  data.frame(key=keys, value=values)
+}
+
+## create a label-to-code mapping table for a multiple choice field
+## field_name - name of field corresponding to 'field_name' in dictionary
+## dictionary - data dictionary table
+get_code_label_map <- function(field_name, dictionary) {
+  field_name_orig <- field_name
+  field_name_code <- paste0(field_name, '_code')
+  dictionary %>% 
+    filter(field_name == field_name_orig) %>%
+    pull(select_choices_or_calculations) %>%
+    parse_choices() %>%
+    rename(!!field_name_orig := value,
+           !!field_name_code := key)
+}
+
 ## SOFA score functions
 
 ## calculate p/f ratio for respiratory SOFA score

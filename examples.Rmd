@@ -108,6 +108,33 @@ data %>%
   xtabs(~cam_0_branching_logic + is.na(cam_0), data=.)
 ```
 
+It may be convenient to use numeric codes for multiple choice fields instead of the value labels. The code below creates a data frame that maps the label to numeric code for a multiple choice field:
+
+```{r}
+## show label-to-code map for 'elig_vent_support'
+## get_code_label_map defined in support_functions.R
+get_code_label_map('elig_vent_support', dictionary) %>% 
+  select(elig_vent_support, elig_vent_support_code) %>%
+  gt()
+```
+
+The numeric codes that then be easily merged with the data:
+
+```{r}
+## join codes for 'elig_vent_support' variable
+data %>% 
+  ## merge codes for 'elig_vent_support'
+  left_join(
+    get_code_label_map('elig_vent_support', dictionary),
+    by='elig_vent_support') %>%
+  ## show first few rows at the relevant event
+  filter(event_label == 'Pre-Enrollment') %>%
+  filter(is.na(repeat_instrument)) %>%
+  select(record_id, elig_vent_support, elig_vent_support_code) %>%
+  head() %>% 
+  gt()
+```
+
 ## Table of syndrome adjudications
 
 The code below creates a data frame with one record per participant with the consensus syndrome adjudication data for that participant.
@@ -134,7 +161,7 @@ syndrome_data %>%
   select(record_id, ards_clinical_judgement,
     pna_clinical_judgement, sepsis_clinical_judgement) %>%
   head() %>%
-  kable()
+  gt()
 ```
 
 ## Calculate and plot SOFA scores
