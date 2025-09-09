@@ -13,6 +13,7 @@
 source("R/variables.R")
 
 nmb_0 <- derive_neuromuscular_blockade_0(data)
+ifp_0 <- derive_inflammatory_profile_0(data)
 
 # Cleanup
 rm(derive_neuromuscular_blockade_0)
