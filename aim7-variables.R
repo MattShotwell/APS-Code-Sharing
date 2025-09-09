@@ -12,9 +12,7 @@
 # Source variable derivation code
 source("R/variables.R")
 
-nb_0 <- derive_neuromuscular_blockade_0(data)
-
-
+nmb_0 <- derive_neuromuscular_blockade_0(data)
 
 # Cleanup
 rm(derive_neuromuscular_blockade_0)
