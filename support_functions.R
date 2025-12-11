@@ -161,7 +161,6 @@ calc_sofa_cns <- function(gcs) {
   
   ## imputed GCS
   gcs_imput <- case_when(
-    gcs_intub ~ gcs_quant + 5.0, ## impute normal verbal score
     TRUE ~ gcs_quant
   )
   
