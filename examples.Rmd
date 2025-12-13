@@ -19,9 +19,9 @@ library('gt')
 ## get support functions
 source('support_functions.R')
 
-## load data from N=500 APS cohort
+## load data from N=1000 APS cohort
 ## provides "data", "dictionary" and "codebook" in the working environment
-load('20250806_data.RData')
+load('20251213_data.RData')
 ```
 
 ## Working with the codebook and dictionary
