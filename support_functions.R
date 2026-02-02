@@ -153,7 +153,7 @@ calc_sofa_card <- function(sbp, dbp, dopa_mcg, dopa_mcgkg, dobu_mcg, dobu_mcgkg,
 calc_sofa_cns <- function(gcs) {
   
   ## treat 'not documented' as NA
-  gcs <- ifelse(gcs == 'not documeted', NA, gcs)
+  gcs <- ifelse(gcs == 'not documented', NA, gcs)
   ## GCS contains T/patient was intubated/no verbal score
   gcs_intub <- grepl('T$', gcs)
   ## extract quantitative component of GCS
