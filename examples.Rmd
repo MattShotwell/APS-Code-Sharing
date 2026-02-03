@@ -323,4 +323,19 @@ data_sofa %>%
     geom_bar(stat="identity", position='stack') +
     labs(x='Study Day', y='Participant Count', fill='Score', title='SOFA Total Score')
 
+# data_sofa %>% 
+#   left_join(data %>% 
+#     filter(event_label == 'Logs', is.na(repeat_instrument)) %>% 
+#     select(record_id, dthind, dthdat),
+#     by='record_id') %>%
+#   left_join(data %>% 
+#     filter(event_label == 'Hospital Discharge and Summary', is.na(repeat_instrument)) %>% 
+#     select(record_id, , icu_occur, icu_stdat, icu_endat, icu_discat),
+#     by='record_id') %>%
+#   left_join(data %>%
+#     filter(event_label == 'Day 0', is.na(repeat_instrument)) %>%
+#     select(record_id, ds_arrival_date, enrollment_time),
+#     by='record_id') %>%
+#   View()
+
 ```
