@@ -15,6 +15,7 @@ library('dplyr')
 library('tidyr')
 library('knitr')
 library('gt')
+library('scales')
 
 ## get support functions
 source('support_functions.R')
@@ -227,6 +228,9 @@ data_sofa <- data %>%
     matches('daily_dobuta_8a_(m2|m1|[0-7])_(mcg|mcgkg)'),
     matches('daily_epi_dose_8a_(m2|m1|[0-7])_(mcg|mcgkg)'),
     matches('daily_ne_dose_8a_(m2|m1|[0-7])_(mcg|mcgkg)'),
+    matches('daily_ang2_8a_(m2|m1|[0-7])_(mcg|mcgkg)'),
+    matches('daily_phen_dos(e)?_8a_(m2|m1|[0-7])_(mcg|mcgkg)'),
+    matches('daily_vaso_dose_8a_(m2|m1|[0-7])'),
     ## CNS
     matches('daily_gcs_8a_(m2|m1|[0-7])'),
     ## Renal
@@ -258,12 +262,17 @@ data_sofa <- data %>%
   mutate(sofa_resp = calc_sofa_resp(
     pf_ratio = pf_ratio,
     sf_ratio = sf_ratio)) %>%
+  mutate(sofa_2_resp = calc_sofa_2_resp(
+    pf_ratio = pf_ratio,
+    sf_ratio = sf_ratio)) %>%
   
   ## coagulation
-  mutate(sofa_coag = calc_sofa_coag(platelets = daily_platelet_8a)) %>%
+  mutate(sofa_coag   = calc_sofa_coag(platelets = daily_platelet_8a)) %>%
+  mutate(sofa_2_coag = calc_sofa_2_coag(platelets = daily_platelet_8a)) %>%
   
   ## liver
-  mutate(sofa_livr = calc_sofa_livr(bilirubin = daily_tbili_8a)) %>%
+  mutate(sofa_livr   = calc_sofa_livr(bilirubin = daily_tbili_8a)) %>%
+  mutate(sofa_2_livr = calc_sofa_2_livr(bilirubin = daily_tbili_8a)) %>%
   
   ## cardiovascular
   mutate(sofa_card = calc_sofa_card(
@@ -278,64 +287,157 @@ data_sofa <- data %>%
     nore_mcg = daily_ne_dose_8a_mcg,
     nore_mcgkg = daily_ne_dose_8a_mcgkg,
     weight_kg = m_weight_kg)) %>%
+  mutate(sofa_2_card = calc_sofa_2_card(
+    sbp = daily_sbp_8a,
+    dbp = daily_sbp_8a,
+    dopa_mcg = daily_dopa_dose_8a_mcg,
+    dopa_mcgkg = daily_dopa_dos_8a_mcgkg,
+    dobu_mcg = daily_dobuta_8a_mcg,
+    dobu_mcgkg = daily_dobuta_8a_mcgkg,
+    epin_mcg = daily_epi_dose_8a_mcg,
+    epin_mcgkg = daily_epi_dose_8a_mcgkg,
+    nore_mcg = daily_ne_dose_8a_mcg,
+    nore_mcgkg = daily_ne_dose_8a_mcgkg,
+    phen_mcg = daily_phen_dose_8a_mcg,
+    phen_mcgkg = daily_phen_dos_8a_mcgkg,
+    vaso_dose = daily_vaso_dose_8a,
+    ang2_mcg = daily_ang2_8a_mcg,
+    ang2_mcgkg = daily_ang2_8a_mcgkg,
+    weight_kg = m_weight_kg)) %>%
   
   ## CNS
   ## calculate wither 'T' present in GCS; indicating intubated patient
   mutate(sofa_cns_gcs_t = ifelse(is.na(daily_gcs_8a), NA, grepl('T', daily_gcs_8a))) %>%
   ## create variable where GCS with a 'T' are set to NA
   mutate(sofa_cns_gcs_no_t = as.numeric(daily_gcs_8a)) %>%
-  mutate(sofa_cns = calc_sofa_cns(gcs = daily_gcs_8a)) %>%
+  mutate(sofa_cns   = calc_sofa_cns(gcs = daily_gcs_8a)) %>%
+  mutate(sofa_2_cns = calc_sofa_2_cns(gcs = daily_gcs_8a)) %>%
   
   ## Renal
-  mutate(sofa_rena = calc_sofa_rena(daily_cr_8a)) %>%
+  mutate(sofa_rena   = calc_sofa_rena(daily_cr_8a)) %>%
+  mutate(sofa_2_rena = calc_sofa_2_rena(daily_cr_8a)) %>%
   
   ## Total SOFA
-  mutate(sofa_totl = sofa_resp + sofa_coag + sofa_livr + sofa_card + sofa_cns + sofa_rena)
+  mutate(sofa_totl   = sofa_resp + sofa_coag + sofa_livr + sofa_card + sofa_cns + sofa_rena) %>%
+  mutate(sofa_2_totl = sofa_2_resp + sofa_2_coag + sofa_2_livr + sofa_2_card + sofa_2_cns + sofa_2_rena)
 
-data_sofa %>%
-  select(record_id, study_day, starts_with('sofa')) %>%
-  select(-starts_with('sofa_cns_gcs'), -sofa_totl) %>%
+# data_sofa %>%
+#   select(record_id, study_day, matches('sofa_[^2]')) %>%
+#   select(-starts_with('sofa_cns_gcs'), -sofa_totl) %>%
+#   pivot_longer(cols = starts_with('sofa'), names_to = 'component') %>% 
+#   mutate(study_day = factor(study_day, levels=-2:7)) %>%
+#   mutate(value = factor(value)) %>%
+#   mutate(component = case_match(component,
+#     "sofa_resp" ~ "Respiratory",
+#     "sofa_coag" ~ "Coagulation",
+#     "sofa_livr" ~ "Liver",
+#     "sofa_card" ~ "Cardiovascular",
+#     "sofa_cns" ~ "CNS",
+#     "sofa_rena" ~ "Renal",
+#     "sofa_totl" ~ "Total")) %>%
+#   group_by(study_day, component, value) %>%
+#   summarise(count = n(), .groups='drop') %>%
+#   ggplot(aes(x=study_day, y=count, fill=value)) +
+#     geom_bar(stat="identity", position='stack') +
+#     facet_wrap(~component) +
+#   labs(x='Study Day', y='Participant Count', fill='Score', title='SOFA Component Scores')
+# 
+# data_sofa %>%
+#   select(record_id, study_day, sofa_totl) %>%
+#   mutate(study_day = factor(study_day, levels=-2:7)) %>%
+#   mutate(sofa_totl = factor(sofa_totl)) %>%
+#   group_by(study_day, sofa_totl) %>%
+#   summarise(count = n(), .groups='drop') %>%
+#   ggplot(aes(x=study_day, y=count, fill=sofa_totl)) +
+#     geom_bar(stat="identity", position='stack') +
+#     labs(x='Study Day', y='Participant Count', fill='Score', title='SOFA Total Score')
+
+data_sofa_imp <- data_sofa %>%
+  left_join(data %>%
+    filter(event_label == 'Logs', is.na(repeat_instrument)) %>%
+    select(record_id, dthind, dthdat, dsdecod, dsstdat),
+    by='record_id') %>%
+  left_join(data %>%
+    filter(event_label == 'Hospital Discharge and Summary', is.na(repeat_instrument)) %>%
+    select(record_id, disdat, icu_occur, icu_stdat, icu_endat, icu_discat),
+    by='record_id') %>%
+  left_join(data %>%
+    filter(event_label == 'Day 0', is.na(repeat_instrument)) %>%
+    select(record_id, ds_arrival_date, enrollment_time),
+    by='record_id') %>%
+  mutate(death_day = as.numeric(difftime(as.Date(dthdat), as.Date(enrollment_time), units='days'))) %>%
+  mutate(icu_start_day= as.numeric(difftime(as.Date(icu_stdat), as.Date(enrollment_time), units='days'))) %>%
+  mutate(icu_end_day= as.numeric(difftime(as.Date(icu_endat), as.Date(enrollment_time), units='days'))) %>%
+  mutate(sofa_all_na = if_all(all_of(
+    paste0('sofa_', c('resp','coag','livr','card','cns','rena'))), is.na)) %>%
+  mutate(sofa_2_all_na = if_all(all_of(
+    paste0('sofa_2_', c('resp','coag','livr','card','cns','rena'))), is.na)) %>%
+  mutate(sofa_totl_imp = ifelse(!sofa_all_na, rowSums(across(all_of(
+    paste0('sofa_', c('resp','coag','livr','card','cns','rena')))), na.rm=TRUE), NA)) %>%
+  mutate(sofa_2_totl_imp = ifelse(!sofa_all_na, rowSums(across(all_of(
+    paste0('sofa_2_', c('resp','coag','livr','card','cns','rena')))), na.rm=TRUE), NA)) %>%
+  mutate(study_date = as.difftime(study_day, units='days') + as.Date(enrollment_time)) %>%
+  mutate(sofa_missing_reason = case_when(
+    study_date < ds_arrival_date ~ "Pre-hospital",
+    !is.na(dthdat) & study_date > dthdat ~ "Deceased",
+    !is.na(disdat) & study_date > disdat ~ "Discharged",
+    !is.na(dsstdat) & study_date > dsstdat &
+      grepl('No further|Withdrawn|Lost', dsdecod) ~ dsdecod,
+    is.na(sofa_totl_imp) | is.na(sofa_2_totl_imp) ~ "Other",
+    TRUE ~ NA)) %>%
+  select(record_id, study_day, 
+    all_of(paste0('sofa_', c('resp','coag','livr','card','cns','rena'))),
+    'sofa_totl', 'sofa_totl_imp',
+    all_of(paste0('sofa_2_', c('resp','coag','livr','card','cns','rena'))),
+    'sofa_2_totl', 'sofa_2_totl_imp',
+    'sofa_missing_reason',
+    icu_start_day, icu_end_day, death_day)
+
+data_sofa_imp %>%
+  select(record_id, study_day, matches('sofa_2')) %>%
+  select(-sofa_2_totl, -sofa_2_totl_imp) %>%
   pivot_longer(cols = starts_with('sofa'), names_to = 'component') %>% 
   mutate(study_day = factor(study_day, levels=-2:7)) %>%
   mutate(value = factor(value)) %>%
   mutate(component = case_match(component,
-    "sofa_resp" ~ "Respiratory",
-    "sofa_coag" ~ "Coagulation",
-    "sofa_livr" ~ "Liver",
-    "sofa_card" ~ "Cardiovascular",
-    "sofa_cns" ~ "CNS",
-    "sofa_rena" ~ "Renal",
-    "sofa_totl" ~ "Total")) %>%
+    "sofa_2_resp" ~ "Respiratory",
+    "sofa_2_coag" ~ "Coagulation",
+    "sofa_2_livr" ~ "Liver",
+    "sofa_2_card" ~ "Cardiovascular",
+    "sofa_2_cns" ~ "CNS",
+    "sofa_2_rena" ~ "Renal",
+    "sofa_2_totl" ~ "Total")) %>%
   group_by(study_day, component, value) %>%
   summarise(count = n(), .groups='drop') %>%
   ggplot(aes(x=study_day, y=count, fill=value)) +
     geom_bar(stat="identity", position='stack') +
     facet_wrap(~component) +
-  labs(x='Study Day', y='Participant Count', fill='Score', title='SOFA Component Scores')
+  labs(x='Study Day', y='Participant Count', fill='Score', title='SOFA-2 Component Scores')
 
-data_sofa %>%
-  select(record_id, study_day, sofa_totl) %>%
+data_sofa_imp %>%
+  select(record_id, study_day, sofa_2_totl_imp) %>%
   mutate(study_day = factor(study_day, levels=-2:7)) %>%
-  mutate(sofa_totl = factor(sofa_totl)) %>%
-  group_by(study_day, sofa_totl) %>%
+  mutate(sofa_2_totl_imp = factor(sofa_2_totl_imp)) %>%
+  group_by(study_day, sofa_2_totl_imp) %>%
   summarise(count = n(), .groups='drop') %>%
-  ggplot(aes(x=study_day, y=count, fill=sofa_totl)) +
+  ggplot(aes(x=study_day, y=count, fill=sofa_2_totl_imp)) +
     geom_bar(stat="identity", position='stack') +
-    labs(x='Study Day', y='Participant Count', fill='Score', title='SOFA Total Score')
+    labs(x='Study Day', y='Participant Count', fill='Score', title='SOFA-2 Total Score')
 
-# data_sofa %>% 
-#   left_join(data %>% 
-#     filter(event_label == 'Logs', is.na(repeat_instrument)) %>% 
-#     select(record_id, dthind, dthdat),
-#     by='record_id') %>%
-#   left_join(data %>% 
-#     filter(event_label == 'Hospital Discharge and Summary', is.na(repeat_instrument)) %>% 
-#     select(record_id, , icu_occur, icu_stdat, icu_endat, icu_discat),
-#     by='record_id') %>%
-#   left_join(data %>%
-#     filter(event_label == 'Day 0', is.na(repeat_instrument)) %>%
-#     select(record_id, ds_arrival_date, enrollment_time),
-#     by='record_id') %>%
-#   View()
-
+data_sofa_imp %>%
+  select(record_id, study_day, sofa_missing_reason) %>%
+  mutate(study_day = factor(study_day, levels=-2:7)) %>%
+  mutate(sofa_missing_reason =
+    ifelse(is.na(sofa_missing_reason), 'Not missing', sofa_missing_reason)) %>%
+  mutate(sofa_missing_reason = factor(sofa_missing_reason, levels=c(
+    "Pre-hospital", "Discharged", "Deceased",
+    "Discontinued - No further data collection", "Other",
+    "Not missing"))) %>%
+  group_by(study_day, sofa_missing_reason) %>%
+  summarise(count = n(), .groups='drop') %>%
+  ggplot(aes(x=study_day, y=count, fill=sofa_missing_reason)) +
+    geom_bar(stat="identity", position='stack') +
+    labs(x='Study Day', y='Participant Count', fill='Reason', title='SOFA-2 Missing Reason') +
+    scale_fill_manual(values = c(hue_pal()(5), "grey70")) +
+    theme_light()
 ```
