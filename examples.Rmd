@@ -25,7 +25,7 @@ source('support_functions.R')
 load('20251213_data.RData')
 ```
 
-## Working with the codebook and dictionary
+# Working with the codebook and dictionary
 
 The codebook shows which forms are collected at which events. For example, the Clinical Frailty Scale is collected at the "Patient/Surrogate Interview" and at each of the 3, 6, and 12 month survey events. The form is not repeating, meaning it can only be completed once per event. Repeating instruments/forms have one row per instance in the data set.
 
@@ -136,7 +136,7 @@ data %>%
   gt()
 ```
 
-## Table of syndrome adjudications
+# Table of syndrome adjudications
 
 The code below creates a data frame with one record per participant with the consensus syndrome adjudication data for that participant.
 
@@ -165,7 +165,9 @@ syndrome_data %>%
   gt()
 ```
 
-## Calculate and plot SOFA scores
+# Derived variables
+
+## SOFA and SOFA-2 scores
 
 The code below converts SOFA score fields in wide format to long, computes each component of the SOFA score and the total score, and creates a figure to display them.
 
@@ -381,8 +383,10 @@ data_sofa_imp <- data_sofa %>%
     study_date < ds_arrival_date ~ "Pre-hospital",
     !is.na(dthdat) & study_date > dthdat ~ "Deceased",
     !is.na(disdat) & study_date > disdat ~ "Discharged",
+    (is.na(sofa_2_totl_imp) | is.na(sofa_totl_imp)) & 
+      grepl("No further", dsdecod) ~ dsdecod,
     !is.na(dsstdat) & study_date > dsstdat &
-      grepl('No further|Withdrawn|Lost', dsdecod) ~ dsdecod,
+      grepl('Withdrawn|Lost', dsdecod) ~ dsdecod,
     is.na(sofa_totl_imp) | is.na(sofa_2_totl_imp) ~ "Other",
     TRUE ~ NA)) %>%
   select(record_id, study_day, 
@@ -417,7 +421,9 @@ data_sofa_imp %>%
 data_sofa_imp %>%
   select(record_id, study_day, sofa_2_totl_imp) %>%
   mutate(study_day = factor(study_day, levels=-2:7)) %>%
-  mutate(sofa_2_totl_imp = factor(sofa_2_totl_imp)) %>%
+  mutate(sofa_2_totl_imp = cut(sofa_2_totl_imp, breaks=c(-Inf, 1, 6, 9, 12, Inf), 
+    labels=c('0-1 Normal', '2-6 Mild', '7-9 Moderate', '10-12 Severe', '>12 Very Severe'))) %>%
+  #mutate(sofa_2_totl_imp = factor(sofa_2_totl_imp)) %>%
   group_by(study_day, sofa_2_totl_imp) %>%
   summarise(count = n(), .groups='drop') %>%
   ggplot(aes(x=study_day, y=count, fill=sofa_2_totl_imp)) +
