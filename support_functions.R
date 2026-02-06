@@ -62,16 +62,19 @@ calc_pf_ratio <- function(low_pao2, resp_low_pao2, fio2_low_pao2, o2_low_pao2) {
 calc_sf_ratio <- function(low_spo2, resp_low_spo2, fio2_low_spo2, o2_low_spo2) {
   case_when(
     
+    ## low SpO2 >97; S/F ratio invalid
+    !is.na(low_spo2) & low_spo2 > 97 ~ NA
+    
     ## patient on ECMO without invasive mechanical ventilation (FiO2 is nonsense)
     resp_low_spo2 == 'ECMO without invasive mechanical ventilation' ~ NA,
     
-    ## lowest SaO2 available and patient on IMV, NIV, or HFNC
+    ## lowest SpO2 available and patient on IMV, NIV, or HFNC
     !is.na(low_spo2) & !is.na(fio2_low_spo2) ~ low_spo2/fio2_low_spo2,
     
-    ## lowest SaO2 available and patient on supplemental oxygen (0.21 + 0.03 * L/min)
+    ## lowest SpO2 available and patient on supplemental oxygen (0.21 + 0.03 * L/min)
     !is.na(low_spo2) & !is.na(o2_low_spo2) ~ low_spo2/pmin(0.21 + 0.03*o2_low_spo2, 1),
     
-    ## lowest SaO2 available and patient on room air
+    ## lowest SpO2 available and patient on room air
     !is.na(low_spo2) & grepl('^No respiratory support', resp_low_spo2) ~ low_spo2/0.21,
     
     TRUE ~ NA
