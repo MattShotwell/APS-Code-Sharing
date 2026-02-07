@@ -307,7 +307,8 @@ calc_sofa_2_cns <- function(gcs) {
 
 ## calculate renal SOFA-2 score
 ## cr - creatinine concentration (mg/dL)
-calc_sofa_2_rena <- function(cr) {
+## uop - urine output (mL)
+calc_sofa_2_rena <- function(cr, uop) {
   case_when(
     cr > 5.0 ~ 4,
     cr > 3.5 ~ 3,
