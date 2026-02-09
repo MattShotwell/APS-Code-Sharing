@@ -380,12 +380,12 @@ data_sofa_imp <- data_sofa %>%
     paste0('sofa_2_', c('resp','coag','livr','card','cns','rena')))), na.rm=TRUE), NA)) %>%
   mutate(study_date = as.difftime(study_day, units='days') + as.Date(enrollment_time)) %>%
   mutate(sofa_missing_reason = case_when(
-    study_date < ds_arrival_date ~ "Pre-hospital",
-    !is.na(dthdat) & study_date > dthdat ~ "Deceased",
-    !is.na(disdat) & study_date > disdat ~ "Discharged",
+    study_date < as.Date(ds_arrival_date) ~ "Pre-hospital",
+    !is.na(dthdat) & study_date > as.Date(dthdat) ~ "Deceased",
+    !is.na(disdat) & study_date > as.Date(disdat) ~ "Discharged",
     (is.na(sofa_2_totl_imp) | is.na(sofa_totl_imp)) & 
       grepl("No further", dsdecod) ~ dsdecod,
-    !is.na(dsstdat) & study_date > dsstdat &
+    !is.na(dsstdat) & study_date > as.Date(dsstdat) &
       grepl('Withdrawn|Lost', dsdecod) ~ dsdecod,
     is.na(sofa_totl_imp) | is.na(sofa_2_totl_imp) ~ "Other",
     TRUE ~ NA)) %>%
