@@ -63,7 +63,7 @@ calc_sf_ratio <- function(low_spo2, resp_low_spo2, fio2_low_spo2, o2_low_spo2) {
   case_when(
     
     ## low SpO2 >97; S/F ratio invalid
-    !is.na(low_spo2) & low_spo2 > 97 ~ NA
+    !is.na(low_spo2) & low_spo2 > 97 ~ NA,
     
     ## patient on ECMO without invasive mechanical ventilation (FiO2 is nonsense)
     resp_low_spo2 == 'ECMO without invasive mechanical ventilation' ~ NA,
