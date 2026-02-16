@@ -300,15 +300,24 @@ calc_sofa_2_card <- function(sbp, dbp, dopa_mcg, dopa_mcgkg, dobu_mcg, dobu_mcgk
   phen_mcgkg <- ifelse(!is.na(phen_mcgkg), phen_mcgkg, phen_mcg/weight_kg)
   ang2_mcgkg <- ifelse(!is.na(ang2_mcgkg), ang2_mcgkg, ang2_mcg/weight_kg)
   
+  ## if missing infusion rate, set equal to zero
+  dopa_mcgkg <- ifelse(!is.na(dopa_mcgkg), dopa_mcgkg, 0)
+  dobu_mcgkg <- ifelse(!is.na(dobu_mcgkg), dobu_mcgkg, 0)
+  epin_mcgkg <- ifelse(!is.na(epin_mcgkg), epin_mcgkg, 0)
+  nore_mcgkg <- ifelse(!is.na(nore_mcgkg), nore_mcgkg, 0)
+  phen_mcgkg <- ifelse(!is.na(phen_mcgkg), phen_mcgkg, 0)
+  ang2_mcgkg <- ifelse(!is.na(ang2_mcgkg), ang2_mcgkg, 0)
+  vaso_dose  <- ifelse(!is.na(vaso_dose), vaso_dose, 0)
+  
   ## is dopamine the only vasopressor used?
   dopa_only <- 
-    !is.na(dopa_mcgkg) & dopa_mcgkg >  0  &
-    (is.na(dobu_mcgkg) | dobu_mcgkg == 0) &
-    (is.na(epin_mcgkg) | epin_mcgkg == 0) &
-    (is.na(nore_mcgkg) | nore_mcgkg == 0) &
-    (is.na(phen_mcgkg) | phen_mcgkg == 0) &
-    (is.na(ang2_mcgkg) | ang2_mcgkg == 0) &
-    (is.na(vaso_dose)  | vaso_dose  == 0) &
+    dopa_mcgkg >  0 &
+    dobu_mcgkg == 0 &
+    epin_mcgkg == 0 &
+    nore_mcgkg == 0 &
+    phen_mcgkg == 0 &
+    ang2_mcgkg == 0 &
+    vaso_dose  == 0
     
   ecmo <- grepl('ECMO', resp_supp)
   
