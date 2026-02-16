@@ -192,15 +192,50 @@ calc_sofa_rena <- function(cr) {
 }
 
 ## calculate respiratory SOFA-2 score
-## pf_ratio - worst PaO2/FiO2 ratio
-## sf_ratio - worst SpO2/FiO2 ratio
-calc_sofa_2_resp <- function(pf_ratio, sf_ratio) {
+## pf_ratio  - worst PaO2/FiO2 ratio
+## sf_ratio  - worst SpO2/FiO2 ratio
+## resp_low_spo2 - Respiratory support at the time of lowest SpO2 measurement on this day
+calc_sofa_2_resp <- function(pf_ratio, sf_ratio, resp_low_pao2, resp_low_spo2) {
+  
+  ## if P/F available, use that and corresponding respiratory support value
+  pf_available <- !is.na(pf_ratio) 
+  resp_low <- ifelse(pf_available, resp_low_pao2, resp_low_spo2)
+  
+  ## ECMO
+  ecmo <- grepl('ECMO', resp_low)
+  
+  ## advanced ventilatory support
+  adv_vent <- case_when(
+    resp_low %in% c(
+      'ECMO and invasive mechanical ventilation',
+      'Invasive mechanical ventilation without ECMO',
+      'Non-invasive ventilation',
+      'High-flow nasal oxygen (high flow nasal oxygen)') ~ TRUE,
+    resp_low %in% c(
+      'ECMO without invasive mechanical ventilation',
+      'Standard flow supplemental oxygen',
+      'No respiratory support or supplemental oxygen (spontaneously breathing room air)') ~ FALSE,
+    TRUE ~ NA)
+  
   case_when(
-    pf_ratio <= 75  | sf_ratio <= 120 ~ 4,
-    pf_ratio <= 150 | sf_ratio <= 200 ~ 3,
-    pf_ratio <= 225 | sf_ratio <= 249 ~ 2,
-    pf_ratio <  300 | sf_ratio <  300 ~ 1,
-    pf_ratio >= 300 | sf_ratio >= 300 ~ 0,
+    ## any ECMO
+    ecmo ~ 4,
+    
+    ## P/F criteria
+    ( pf_available & pf_ratio <= 75 ) & (is.na(adv_vent) | adv_vent) ~ 4,
+    ( pf_available & pf_ratio <= 150) & (is.na(adv_vent) | adv_vent) ~ 3,
+    ( pf_available & pf_ratio <= 225)                                ~ 2,
+    ( pf_available & pf_ratio <= 300)                                ~ 1,
+    ( pf_available & pf_ratio >  300)                                ~ 0,
+    
+    ## S/F criteria
+    (!pf_available & sf_ratio <= 120) & (is.na(adv_vent) | adv_vent) ~ 4,
+    (!pf_available & sf_ratio <= 200) & (is.na(adv_vent) | adv_vent) ~ 3,
+    (!pf_available & sf_ratio <= 249)                                ~ 2,
+    (!pf_available & sf_ratio <= 300)                                ~ 1,
+    (!pf_available & sf_ratio >  300)                                ~ 0,
+    
+    ## not enough information
     TRUE ~ NA
   )
 }
@@ -282,7 +317,8 @@ calc_sofa_2_card <- function(sbp, dbp, dopa_mcg, dopa_mcgkg, dobu_mcg, dobu_mcgk
 
 ## calculate CNS SOFA-2 score
 ## gcs - Glasgow Coma Score
-calc_sofa_2_cns <- function(gcs) {
+## del_med - TRUE/FALSE - Any drug treatment for delirium
+calc_sofa_2_cns <- function(gcs, del_med = FALSE) {
   
   ## treat 'not documented' as missing
   gcs <- ifelse(gcs == 'not documented', NA, gcs)
@@ -295,7 +331,7 @@ calc_sofa_2_cns <- function(gcs) {
     gcs)
   
   ## convert to SOFA CNS score
-  case_when(
+  score <- case_when(
     gcs_imput <= 5  ~ 4,
     gcs_imput <= 8  ~ 3,
     gcs_imput <= 12 ~ 2,
@@ -303,6 +339,12 @@ calc_sofa_2_cns <- function(gcs) {
     gcs_imput == 15 ~ 0,
     TRUE ~ NA
   )
+  
+  ## if any drug treatment for delirium score at least 1
+  if(score == 0 & del_med)
+    score <- 1
+  
+  return(score)
 }
 
 ## calculate renal SOFA-2 score

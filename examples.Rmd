@@ -167,9 +167,36 @@ syndrome_data %>%
 
 # Derived variables
 
-## SOFA and SOFA-2 scores
+## SOFA-2 scores
 
-The code below converts SOFA score fields in wide format to long, computes each component of the SOFA score and the total score, and creates a figure to display them.
+The code below converts the required data fields in wide format to long, computes each component of the SOFA-2 score and the total score, and creates a figure to display them.
+
+### SOFA-2 components
+
+In general, the criteria listed in Table 2 and its footnotes in [Ranzani et al; 2025](https://jamanetwork.com/journals/jama/fullarticle/2840822) were used to code the SOFA-2 component scores.
+
+#### Brain
+
+The Glasgow Coma Score (GCS) measured closest to 8am was used to evaluate the Brain SOFA-2 component. In APS, the verbal component of GCS is assigned a value of 1 (no verbal response; worst score) for participants who are intubated, and the GCS total score is appended with the character 'L' (e.g., '8L'). However, for the purposes of computing the Brain component of the SOFA-2 score, participants who are intubated are assigned a verbal component of 5 (orientated to person, place, and time; best score). For example, for the purpose of calculating the Brain component of SOFA-2, a GCS '8L' would be treated as 12 = 8 + 4. After accounting for intubated participants, the GCS criteria are applied as described in Table 2 of [Ranzani et al; 2025](https://jamanetwork.com/journals/jama/fullarticle/2840822). If a GCS is reported, that value is used regardless of sedative medication use (this may partially conflict with footnote c). Since in APS the GCS component scores are not recorded individually, it is not possible to impute the GCS from a subset of its component scores (see footnote d). If a participant was receiving drug treatment for delirium and the Brain component is otherwise scored 0, the Brain component is scored 1 instead (consistent with footnote e) If the Brain component is missing (as a result of missing GCS), then the rules for missing values (described below) apply.
+
+#### Respiratory
+
+The PaO2/FiO2 and SpO2/FiO2 ratios, and the corresponding level of respiratory support are calculated using measurements taken at the lowest PaO2 or SpO2 on that day, respectively. FiO2 is treated as missing (and thus PaO2/FiO2 and SpO2/FiO2 ratios are also treated as missing) if the participant was receiving ECMO without invasive mechanical ventilation at the time of FiO2 measurement. If the participant was on room air or receiving supplemental oxygen by nasal cannula, FiO2 was calculated using the following formula: FiO2 = min(0.21 + 0.03 * LPM, 1), where LPM is liters per minute on nasal cannula or 0 if on room air. SpO2/FiO2 is treated as missing if the SpO2 was >97% at the time of FiO2 measurement. If the P/F ratio was available, the P/F ratio and corresponding ventilatory support at the time of measurement were used to evaluate the Respiratory SOFA criteria described in Table 2 of [Ranzani et al; 2025](https://jamanetwork.com/journals/jama/fullarticle/2840822). If the P/F ratio was not available, the S/F ratio was used instead with alternative thresholds as described in footnote f. The following were considered advanced ventilatory support for the purposes of calculating the Respiratory SOFA score: ECMO and invasive mechanical ventilation, Invasive mechanical ventilation without ECMO, Non-invasive ventilation, and High-flow nasal oxygen (high flow nasal oxygen), consistent with footnote g. The following were not considered advanced ventilatory support: ECMO without invasive mechanical ventilation, Standard flow supplemental oxygen, No respiratory support or supplemental oxygen (spontaneously breathing room air). If advanced ventilatory support was not available, only the P/F or S/F criteria were considered, consistent with footnote h. ECMO with or without IMV was assigned a Respiratory SOFA score of 4, consistent with footnote i.
+
+#### Cardiovascular
+Measurements taken closest to 8am were used to evaluate the Cardiovascular SOFA-2 component. MAP was calculated using the following formula: MAP = 1/3 * SBP + 2/3 * DBP.
+
+### Handling of missing values
+
+The rules below for handling missing values will be applied in order from first to last, with earlier rules taking priority, and subsequent rules taking effect for values that remain missing.
+
+1. For participants that are not hospitalized or not actively enrolled (e.g., withdrawn or discontinued with no further data collection) on a given study day, the SOFA-2 component and total scores are treated as unmeasured, but not missing.
+
+3. For the Respiratory component, the SpO2/FiO2 ratio is used to substitute for the PaO2/FiO2 ratio when PaO2 is unknonwn and when SpO2 < 98. Alternative thresholds for the SpO2/FiO2 ratio are used as described in footnote f of [Ranzani et al; 2025](https://jamanetwork.com/journals/jama/fullarticle/2840822).
+
+3. Last observation carry forward (LOCF) will be used to impute missing component scores for participants that remain hospitalized and actively enrolled. If any component score at day 0 cannot be imputed using LOCF (because there are no values to carry forward from days -2 or -1), then those components will be scored as 0 (no organ dysfunction; see footnote b in [Ranzani et al; 2025](https://jamanetwork.com/journals/jama/fullarticle/2840822)).
+
+4. If a participant was receiving drug treatment for delirium, the Brain component is scored 1 (see footnote e in [Ranzani et al; 2025](https://jamanetwork.com/journals/jama/fullarticle/2840822)). 
 
 ```{r 'sofa scores'}
 
@@ -266,7 +293,9 @@ data_sofa <- data %>%
     sf_ratio = sf_ratio)) %>%
   mutate(sofa_2_resp = calc_sofa_2_resp(
     pf_ratio = pf_ratio,
-    sf_ratio = sf_ratio)) %>%
+    sf_ratio = sf_ratio,
+    resp_low_pao2 = daily_resp_lowest_pao2,
+    resp_low_spo2 = daily_resp_lowest)) %>%
   
   ## coagulation
   mutate(sofa_coag   = calc_sofa_coag(platelets = daily_platelet_8a)) %>%
