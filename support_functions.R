@@ -283,31 +283,59 @@ calc_sofa_2_livr <- function(bilirubin) {
 ## ang2_mcg   - angiotensin II dose (mcg/min)
 ## ang2_mcgkg - angiotensin II dose (mcg/min/kg)
 ## weight_kg  - weight (kg)
+## resp_supp  - respiratory support
 calc_sofa_2_card <- function(sbp, dbp, dopa_mcg, dopa_mcgkg, dobu_mcg, dobu_mcgkg,
                              epin_mcg, epin_mcgkg, nore_mcg, nore_mcgkg, 
                              phen_mcg, phen_mcgkg, vaso_dose,ang2_mcg, ang2_mcgkg, 
-                             weight_kg) {
+                             weight_kg, resp_supp) {
+  
+  ## calculate MAP
   map <- 1/3*sbp + 2/3*dbp
+  
+  ## convert to mcg/kg/min
+  dopa_mcgkg <- ifelse(!is.na(dopa_mcgkg), dopa_mcgkg, dopa_mcg/weight_kg)
+  dobu_mcgkg <- ifelse(!is.na(dobu_mcgkg), dobu_mcgkg, dobu_mcg/weight_kg)
+  epin_mcgkg <- ifelse(!is.na(epin_mcgkg), epin_mcgkg, epin_mcg/weight_kg)
+  nore_mcgkg <- ifelse(!is.na(nore_mcgkg), nore_mcgkg, nore_mcg/weight_kg)
+  phen_mcgkg <- ifelse(!is.na(phen_mcgkg), phen_mcgkg, phen_mcg/weight_kg)
+  ang2_mcgkg <- ifelse(!is.na(ang2_mcgkg), ang2_mcgkg, ang2_mcg/weight_kg)
+  
+  ## is dopamine the only vasopressor used?
+  dopa_only <- 
+    !is.na(dopa_mcgkg) & dopa_mcgkg >  0  &
+    (is.na(dobu_mcgkg) | dobu_mcgkg == 0) &
+    (is.na(epin_mcgkg) | epin_mcgkg == 0) &
+    (is.na(nore_mcgkg) | nore_mcgkg == 0) &
+    (is.na(phen_mcgkg) | phen_mcgkg == 0) &
+    (is.na(ang2_mcgkg) | ang2_mcgkg == 0) &
+    (is.na(vaso_dose)  | vaso_dose  == 0) &
+    
+  ecmo <- grepl('ECMO', resp_supp)
+  
+  ## calculate cardiovascular component
   case_when(
     epin_mcgkg + nore_mcgkg > 0.4 |
       ((epin_mcgkg + nore_mcgkg > 0.2) &
-         (dopa_mcgkg > 0.0 | dopa_mcg > 0.0 | 
-            dobu_mcgkg > 0.0 | dobu_mcg > 0.0 |
-            phen_mcg > 0.0 | phen_mcgkg > 0.0 | 
-            vaso_dose  > 0.0 | ang2_mcg  > 0.0 | 
-            ang2_mcgkg  > 0.0))    ~ 4,
+         (dopa_mcgkg > 0.0 |
+          dobu_mcgkg > 0.0 |
+          phen_mcgkg > 0.0 | 
+          vaso_dose  > 0.0 |
+          ang2_mcgkg > 0.0 |
+          ecmo)) |
+      (dopa_only & dopa_mcgkg > 40) ~ 4,
     epin_mcgkg + nore_mcgkg > 0.2 |
       ((epin_mcgkg + nore_mcgkg > 0) &
-         (dopa_mcgkg > 0.0 | dopa_mcg > 0.0 | 
-            dobu_mcgkg > 0.0 | dobu_mcg > 0.0 |
-            phen_mcg > 0.0 | phen_mcgkg > 0.0 | 
-            vaso_dose  > 0.0 | ang2_mcg  > 0.0 | 
-            ang2_mcgkg  > 0.0))   ~ 3,
-    epin_mcgkg + nore_mcgkg <= 0.2 |
-      dopa_mcgkg > 0.0 | dopa_mcg > 0.0 | 
-      dobu_mcgkg > 0.0 | dobu_mcg > 0.0 |
-      phen_mcg > 0.0 | phen_mcgkg > 0.0 | 
-      vaso_dose  > 0.0 | ang2_mcg  > 0.0 | 
+         (dopa_mcgkg > 0.0 |
+            dobu_mcgkg > 0.0 |
+            phen_mcgkg > 0.0 | 
+            vaso_dose  > 0.0 |
+            ang2_mcgkg > 0.0)) |
+      (dopa_only & dopa_mcgkg > 20) ~ 3,
+    epin_mcgkg + nore_mcgkg > 0.0 |
+      dopa_mcgkg > 0.0 |  
+      dobu_mcgkg > 0.0 | 
+      phen_mcgkg > 0.0 | 
+      vaso_dose  > 0.0 |
       ang2_mcgkg  > 0.0 ~ 2,
     map < 70  ~ 1,
     map >= 70 ~ 0,
