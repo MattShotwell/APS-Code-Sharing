@@ -376,11 +376,12 @@ calc_sofa_2_cns <- function(gcs, del_med = FALSE) {
 }
 
 ## calculate renal SOFA-2 score
-## cr - creatinine concentration (mg/dL)
+## cr  - creatinine concentration (mg/dL)
+## rrt - TRUE/FALSE - chronic or new RRT
 ## uop - urine output (mL)
-calc_sofa_2_rena <- function(cr, uop) {
+calc_sofa_2_rena <- function(cr, rrt, uop) {
   case_when(
-    cr > 5.0 ~ 4,
+    rrt ~ 4,
     cr > 3.5 ~ 3,
     cr > 2.0 ~ 2, 
     cr > 1.2 ~ 1,
