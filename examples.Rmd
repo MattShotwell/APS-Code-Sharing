@@ -260,7 +260,7 @@ data_sofa <- data %>%
     matches('daily_ang2_8a_(m2|m1|[0-7])_(mcg|mcgkg)'),
     matches('daily_phen_dos(e)?_8a_(m2|m1|[0-7])_(mcg|mcgkg)'),
     matches('daily_vaso_dose_8a_(m2|m1|[0-7])'),
-    matches('daily_resp_8a_(m2|m1|[0-7])')
+    matches('daily_resp_8a_(m2|m1|[0-7])'),
     ## CNS
     matches('daily_gcs_8a_(m2|m1|[0-7])'),
     ## Renal
