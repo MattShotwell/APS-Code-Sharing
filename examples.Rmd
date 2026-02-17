@@ -195,13 +195,9 @@ Platelet count closest to 8am was used to evaluate the Hemostasis SOFA-2 compone
 
 The rules below for handling missing values will be applied in order from first to last, with earlier rules taking priority, and subsequent rules taking effect for values that remain missing.
 
-1. For participants that are not hospitalized or not actively enrolled (e.g., withdrawn or discontinued with no further data collection) on a given study day, the SOFA-2 component and total scores are treated as unmeasured, but not missing.
+1. For participants that are not hospitalized or not actively enrolled (e.g., withdrawn or discontinued with no further data collection) on a given study day, the SOFA-2 component and total scores are considered unmeasured and not handled further.
 
-3. For the Respiratory component, the SpO2/FiO2 ratio is used to substitute for the PaO2/FiO2 ratio when PaO2 is unknonwn and when SpO2 < 98. Alternative thresholds for the SpO2/FiO2 ratio are used as described in footnote f of [Ranzani et al; 2025](https://jamanetwork.com/journals/jama/fullarticle/2840822).
-
-3. Last observation carry forward (LOCF) will be used to impute missing component scores for participants that remain hospitalized and actively enrolled. If any component score at day 0 cannot be imputed using LOCF (because there are no values to carry forward from days -2 or -1), then those components will be scored as 0 (no organ dysfunction; see footnote b in [Ranzani et al; 2025](https://jamanetwork.com/journals/jama/fullarticle/2840822)).
-
-4. If a participant was receiving drug treatment for delirium, the Brain component is scored 1 (see footnote e in [Ranzani et al; 2025](https://jamanetwork.com/journals/jama/fullarticle/2840822)). 
+2. Last observation carry forward (LOCF) will be used to impute missing component scores for participants that remain hospitalized and actively enrolled. If any component score at day 0 cannot be imputed using LOCF (because there are no values to carry forward from days -2 or -1), then those components will be scored as 0 (no organ dysfunction; see footnote b in [Ranzani et al; 2025](https://jamanetwork.com/journals/jama/fullarticle/2840822)).
 
 ```{r 'sofa scores'}
 
@@ -221,7 +217,7 @@ data_sofa <- data %>%
   filter(is.na(repeat_instrument)) %>%
   
   ## merge data from the "Day 0" event
-  select(-m_weight_kg, -enrollment_time) %>%
+  select(-m_weight_kg, -enrollment_time, -sofa_base_renal_chronic) %>%
   left_join(data %>%
     filter(event_label == 'Day 0') %>%
     select(record_id, m_weight_kg, enrollment_time,
@@ -249,6 +245,9 @@ data_sofa <- data %>%
   select(
     record_id,
     m_weight_kg,
+    enrollment_time,
+    rrt_stdat,
+    rrt_endat,
     ## respiratory
     matches('daily_pa02_lowest_(m2|m1|[0-7])'),
     matches('daily_resp_lowest_pao2_(m2|m1|[0-7])'),
@@ -277,6 +276,7 @@ data_sofa <- data %>%
     ## CNS
     matches('daily_gcs_8a_(m2|m1|[0-7])'),
     ## Renal
+    sofa_base_renal_chronic,
     matches('daily_cr_8a_(m2|m1|[0-7])')) %>%
   
   ## rename the columns so that the study day is always the last element
@@ -371,7 +371,7 @@ data_sofa <- data %>%
   mutate(chronic_or_new_rrt = case_when(
     grepl("Chronic kidney replacement therapy", sofa_base_renal_chronic) ~ TRUE,
     (study_day >= as.numeric(rrt_stdat - enrollment_date)) &
-    (study_day <= as.numeric(rrt_endat - enrollment_date)) ~ TRUE  
+    (study_day <= as.numeric(rrt_endat - enrollment_date)) ~ TRUE,
     TRUE ~ FALSE
   )) %>%
   mutate(sofa_rena   = calc_sofa_rena(daily_cr_8a)) %>%
@@ -379,96 +379,84 @@ data_sofa <- data %>%
   
   ## Total SOFA
   mutate(sofa_totl   = sofa_resp + sofa_coag + sofa_livr + sofa_card + sofa_cns + sofa_rena) %>%
-  mutate(sofa_2_totl = sofa_2_resp + sofa_2_coag + sofa_2_livr + sofa_2_card + sofa_2_cns + sofa_2_rena)
+  mutate(sofa_2_totl = sofa_2_resp + sofa_2_coag + sofa_2_livr + sofa_2_card + sofa_2_cns + sofa_2_rena) %>%
 
-# data_sofa %>%
-#   select(record_id, study_day, matches('sofa_[^2]')) %>%
-#   select(-starts_with('sofa_cns_gcs'), -sofa_totl) %>%
-#   pivot_longer(cols = starts_with('sofa'), names_to = 'component') %>% 
-#   mutate(study_day = factor(study_day, levels=-2:7)) %>%
-#   mutate(value = factor(value)) %>%
-#   mutate(component = case_match(component,
-#     "sofa_resp" ~ "Respiratory",
-#     "sofa_coag" ~ "Coagulation",
-#     "sofa_livr" ~ "Liver",
-#     "sofa_card" ~ "Cardiovascular",
-#     "sofa_cns" ~ "CNS",
-#     "sofa_rena" ~ "Renal",
-#     "sofa_totl" ~ "Total")) %>%
-#   group_by(study_day, component, value) %>%
-#   summarise(count = n(), .groups='drop') %>%
-#   ggplot(aes(x=study_day, y=count, fill=value)) +
-#     geom_bar(stat="identity", position='stack') +
-#     facet_wrap(~component) +
-#   labs(x='Study Day', y='Participant Count', fill='Score', title='SOFA Component Scores')
-# 
-# data_sofa %>%
-#   select(record_id, study_day, sofa_totl) %>%
-#   mutate(study_day = factor(study_day, levels=-2:7)) %>%
-#   mutate(sofa_totl = factor(sofa_totl)) %>%
-#   group_by(study_day, sofa_totl) %>%
-#   summarise(count = n(), .groups='drop') %>%
-#   ggplot(aes(x=study_day, y=count, fill=sofa_totl)) +
-#     geom_bar(stat="identity", position='stack') +
-#     labs(x='Study Day', y='Participant Count', fill='Score', title='SOFA Total Score')
-
-data_sofa_imp <- data_sofa %>%
+  ## get death and status information
   left_join(data %>%
     filter(event_label == 'Logs', is.na(repeat_instrument)) %>%
     select(record_id, dthind, dthdat, dsdecod, dsstdat),
     by='record_id') %>%
+  
+  ## get discharge categories and ICU admission dates
   left_join(data %>%
     filter(event_label == 'Hospital Discharge and Summary', is.na(repeat_instrument)) %>%
     select(record_id, disdat, icu_occur, icu_stdat, icu_endat, icu_discat),
     by='record_id') %>%
+  
+  ## get hospital arrival date and enrollment time
   left_join(data %>%
     filter(event_label == 'Day 0', is.na(repeat_instrument)) %>%
-    select(record_id, ds_arrival_date, enrollment_time),
+    select(record_id, ds_arrival_date),
     by='record_id') %>%
+  
+  ## calculate study days for death and ICU admission dates
   mutate(death_day = as.numeric(difftime(as.Date(dthdat), as.Date(enrollment_time), units='days'))) %>%
   mutate(icu_start_day= as.numeric(difftime(as.Date(icu_stdat), as.Date(enrollment_time), units='days'))) %>%
   mutate(icu_end_day= as.numeric(difftime(as.Date(icu_endat), as.Date(enrollment_time), units='days'))) %>%
+  
+  ## calculate whether all SOFA components are missing
   mutate(sofa_all_na = if_all(all_of(
     paste0('sofa_', c('resp','coag','livr','card','cns','rena'))), is.na)) %>%
   mutate(sofa_2_all_na = if_all(all_of(
     paste0('sofa_2_', c('resp','coag','livr','card','cns','rena'))), is.na)) %>%
-  mutate(sofa_totl_imp = ifelse(!sofa_all_na, rowSums(across(all_of(
-    paste0('sofa_', c('resp','coag','livr','card','cns','rena')))), na.rm=TRUE), NA)) %>%
-  mutate(sofa_2_totl_imp = ifelse(!sofa_all_na, rowSums(across(all_of(
-    paste0('sofa_2_', c('resp','coag','livr','card','cns','rena')))), na.rm=TRUE), NA)) %>%
+
+  ## calculate study date for each study day
   mutate(study_date = as.difftime(study_day, units='days') + as.Date(enrollment_time)) %>%
-  mutate(sofa_missing_reason = case_when(
+  
+  ## get reasons for missing SOFA scores; note that even if one of these reasons
+  ## is present, there may still be a SOFA score for that day (e.g., if a SOFA score
+  ## was measured on the same day as hospital discharge).
+  mutate(sofa_2_missing_reason = case_when(
     study_date < as.Date(ds_arrival_date) ~ "Pre-hospital",
     !is.na(dthdat) & study_date > as.Date(dthdat) ~ "Deceased",
     !is.na(disdat) & study_date > as.Date(disdat) ~ "Discharged",
-    (is.na(sofa_2_totl_imp) | is.na(sofa_totl_imp)) & 
-      grepl("No further", dsdecod) ~ dsdecod,
     !is.na(dsstdat) & study_date > as.Date(dsstdat) &
-      grepl('Withdrawn|Lost', dsdecod) ~ dsdecod,
-    is.na(sofa_totl_imp) | is.na(sofa_2_totl_imp) ~ "Other",
+      grepl('Withdrawn|Lost|No further', dsdecod) ~ dsdecod,
     TRUE ~ NA)) %>%
-  select(record_id, study_day, 
-    all_of(paste0('sofa_', c('resp','coag','livr','card','cns','rena'))),
-    'sofa_totl', 'sofa_totl_imp',
-    all_of(paste0('sofa_2_', c('resp','coag','livr','card','cns','rena'))),
-    'sofa_2_totl', 'sofa_2_totl_imp',
-    'sofa_missing_reason',
-    icu_start_day, icu_end_day, death_day)
+  
+  ## indicate which SOFA scores are eligible for imputation
+  mutate(sofa_2_impute_eligible = is.na(sofa_2_totl) &
+    is.na(sofa_2_missing_reason)) %>%
+  
+  ## ## impute "normal" for first impute-eligible missing value among days -2:0, 
+  ## then use LOCF for remaining impute-eligible missing values
+  arrange(record_id, study_day) %>%
+  group_by(record_id) %>%
+  mutate(across(all_of(paste0('sofa_2_', c('resp','coag','livr','card','cns','rena'))),
+    .fns = ~calc_sofa_2_impute(., sofa_2_impute_eligible, study_day),
+    .names = "{.col}_impu")) %>%
+  
+  ## compute imputed total score
+  mutate(sofa_2_totl_impu = sofa_2_resp_impu + sofa_2_coag_impu + 
+    sofa_2_livr_impu + sofa_2_card_impu + sofa_2_cns_impu + sofa_2_rena_impu)
+  
+  # select(record_id, study_day, 
+  #   starts_with('sofa_2'),
+  #   icu_start_day, icu_end_day, death_day)
 
-data_sofa_imp %>%
-  select(record_id, study_day, matches('sofa_2')) %>%
-  select(-sofa_2_totl, -sofa_2_totl_imp) %>%
+data_sofa %>%
+  select(record_id, study_day, matches('sofa_2_.+_impu')) %>%
+  select(-sofa_2_totl_impu) %>%
   pivot_longer(cols = starts_with('sofa'), names_to = 'component') %>% 
   mutate(study_day = factor(study_day, levels=-2:7)) %>%
   mutate(value = factor(value)) %>%
   mutate(component = case_match(component,
-    "sofa_2_resp" ~ "Respiratory",
-    "sofa_2_coag" ~ "Coagulation",
-    "sofa_2_livr" ~ "Liver",
-    "sofa_2_card" ~ "Cardiovascular",
-    "sofa_2_cns" ~ "CNS",
-    "sofa_2_rena" ~ "Renal",
-    "sofa_2_totl" ~ "Total")) %>%
+    "sofa_2_resp_impu" ~ "Respiratory",
+    "sofa_2_coag_impu" ~ "Coagulation",
+    "sofa_2_livr_impu" ~ "Liver",
+    "sofa_2_card_impu" ~ "Cardiovascular",
+    "sofa_2_cns_impu" ~ "CNS",
+    "sofa_2_rena_impu" ~ "Renal")) %>%
   group_by(study_day, component, value) %>%
   summarise(count = n(), .groups='drop') %>%
   ggplot(aes(x=study_day, y=count, fill=value)) +
@@ -476,21 +464,22 @@ data_sofa_imp %>%
     facet_wrap(~component) +
   labs(x='Study Day', y='Participant Count', fill='Score', title='SOFA-2 Component Scores')
 
-data_sofa_imp %>%
-  select(record_id, study_day, sofa_2_totl_imp) %>%
+data_sofa %>%
+  select(record_id, study_day, sofa_2_totl_impu) %>%
   mutate(study_day = factor(study_day, levels=-2:7)) %>%
-  mutate(sofa_2_totl_imp = cut(sofa_2_totl_imp, breaks=c(-Inf, 1, 6, 9, 12, Inf), 
+  mutate(sofa_2_totl_impu = cut(sofa_2_totl_impu, breaks=c(-Inf, 1, 6, 9, 12, Inf), 
     labels=c('0-1 Normal', '2-6 Mild', '7-9 Moderate', '10-12 Severe', '>12 Very Severe'))) %>%
   #mutate(sofa_2_totl_imp = factor(sofa_2_totl_imp)) %>%
-  group_by(study_day, sofa_2_totl_imp) %>%
+  group_by(study_day, sofa_2_totl_impu) %>%
   summarise(count = n(), .groups='drop') %>%
-  ggplot(aes(x=study_day, y=count, fill=sofa_2_totl_imp)) +
+  ggplot(aes(x=study_day, y=count, fill=sofa_2_totl_impu)) +
     geom_bar(stat="identity", position='stack') +
     labs(x='Study Day', y='Participant Count', fill='Score', title='SOFA-2 Total Score')
 
-data_sofa_imp %>%
-  select(record_id, study_day, sofa_missing_reason) %>%
+data_sofa %>%
+  select(record_id, study_day, sofa_2_missing_reason) %>%
   mutate(study_day = factor(study_day, levels=-2:7)) %>%
+  rename(sofa_missing_reason = sofa_2_missing_reason) %>%
   mutate(sofa_missing_reason =
     ifelse(is.na(sofa_missing_reason), 'Not missing', sofa_missing_reason)) %>%
   mutate(sofa_missing_reason = factor(sofa_missing_reason, levels=c(

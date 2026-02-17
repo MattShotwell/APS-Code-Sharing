@@ -398,3 +398,53 @@ calc_sofa_2_rena <- function(cr, rrt, uop) {
     TRUE ~ NA
   )
 }
+
+## last observation carry forward (LOCF)
+## x - vector to impute
+locf <- function(x) {
+  
+  ## return if length == 0
+  if(!length(x))
+    stop('length zero "x"')
+  
+  ## no imputation if all missing
+  na <- is.na(x)
+  if (all(na)) 
+    return(x)
+  
+  ## fill gaps
+  ok <- which(!na)
+  if (is.na(x[1L])) 
+    ok <- c(1L, ok)
+  gaps <- diff(c(ok, length(x) + 1L))
+  
+  return(rep(x[ok], gaps))
+}
+
+## impute mising values by imputing 'normal' (score 0) for the first eligible
+## missing value for among study days -2:0
+## score - score vector to impute
+## impute_eligible - TRUE/FALSE vector is the score eligible to impute
+## study_day - study day
+calc_sofa_2_impute <- function(score, impute_eligible, study_day) {
+  
+  ## mark missing values before imputation
+  na <- is.na(score)
+  
+  ## find index of first value eligible for imputation
+  idx <- match(TRUE, study_day <= 0 & impute_eligible & is.na(score))
+  if(!is.na(idx))
+    score[idx] <- 0
+  
+  ## last observation carry forward
+  score <- locf(score)
+  
+  ## mark missing ineligible scores as NA
+  score[!impute_eligible & na] <- NA
+  
+  return(score)
+}
+
+
+
+
