@@ -378,7 +378,7 @@ data_sofa <- data %>%
   mutate(chronic_or_new_rrt = case_when(
     grepl("Chronic kidney replacement therapy", sofa_base_renal_chronic) ~ TRUE,
     (study_day >= as.numeric(rrt_stdat - enrollment_date)) &
-    (study_day <= as.numeric(rrt_endat - enrollment_date)) ~ TRUE,
+    (is.na(rrt_endat) | study_day <= as.numeric(rrt_endat - enrollment_date)) ~ TRUE,
     TRUE ~ FALSE
   )) %>%
   mutate(sofa_rena   = calc_sofa_rena(daily_cr_8a)) %>%
