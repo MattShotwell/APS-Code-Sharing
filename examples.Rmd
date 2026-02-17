@@ -197,7 +197,9 @@ The rules below for handling missing values will be applied in order from first 
 
 1. For participants that are not hospitalized or not actively enrolled (e.g., withdrawn or discontinued with no further data collection) on a given study day, the SOFA-2 component and total scores are considered unmeasured and not handled further.
 
-2. Last observation carry forward (LOCF) will be used to impute missing component scores for participants that remain hospitalized and actively enrolled. If any component score at day 0 cannot be imputed using LOCF (because there are no values to carry forward from days -2 or -1), then those components will be scored as 0 (no organ dysfunction; see footnote b in [Ranzani et al; 2025](https://jamanetwork.com/journals/jama/fullarticle/2840822)).
+2. For each component score, the earliest missing score among study days -2, -1, or 0 is assigned a value of 0 (normal), consistent with footnote b in re at day 0 cannot be imputed using LOCF (because there are no values to carry forward from days -2 or -1), then those components will be scored as 0 (no organ dysfunction; see footnote b in [Ranzani et al; 2025](https://jamanetwork.com/journals/jama/fullarticle/2840822)).
+
+3. Last observation carry forward (LOCF) is used to impute missing component scores, consistent see footnote b in [Ranzani et al; 2025](https://jamanetwork.com/journals/jama/fullarticle/2840822)).
 
 ```{r 'sofa scores'}
 
