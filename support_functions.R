@@ -378,8 +378,7 @@ calc_sofa_2_cns <- function(gcs, del_med = FALSE) {
   )
   
   ## if any drug treatment for delirium score at least 1
-  if(score == 0 & del_med)
-    score <- 1
+  score <- ifelse(score == 0 & del_med, 1, score)
   
   return(score)
 }
