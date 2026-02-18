@@ -194,6 +194,7 @@ calc_sofa_rena <- function(cr) {
 ## calculate respiratory SOFA-2 score
 ## pf_ratio  - worst PaO2/FiO2 ratio
 ## sf_ratio  - worst SpO2/FiO2 ratio
+## resp_low_pao2 - Respiratory support at the time of lowest PaO2 measurement on this day
 ## resp_low_spo2 - Respiratory support at the time of lowest SpO2 measurement on this day
 calc_sofa_2_resp <- function(pf_ratio, sf_ratio, resp_low_pao2, resp_low_spo2) {
   
