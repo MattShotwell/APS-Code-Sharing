@@ -442,6 +442,7 @@ data_sofa <- data %>%
   mutate(across(all_of(paste0('sofa_2_', c('resp','coag','livr','card','cns','rena'))),
     .fns = ~calc_sofa_2_impute(., sofa_2_impute_eligible, study_day),
     .names = "{.col}_impu")) %>%
+  ungroup() %>%
   
   ## compute imputed total score
   mutate(sofa_2_totl_impu = sofa_2_resp_impu + sofa_2_coag_impu + 
