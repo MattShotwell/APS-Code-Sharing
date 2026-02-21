@@ -447,6 +447,10 @@ data_sofa <- data %>%
   ## compute imputed total score
   mutate(sofa_2_totl_impu = sofa_2_resp_impu + sofa_2_coag_impu + 
     sofa_2_livr_impu + sofa_2_card_impu + sofa_2_cns_impu + sofa_2_rena_impu)
+
+  # timestamp <- format(Sys.time(), format='%Y%m%d%H%M%S')
+  # readr::write_csv(data_sofa,
+  #   file=paste0(timestamp, '_APS_SOFA_2_data.csv'))
   
   # select(record_id, study_day, 
   #   starts_with('sofa_2'),
