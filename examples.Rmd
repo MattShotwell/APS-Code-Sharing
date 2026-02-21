@@ -319,7 +319,8 @@ data_sofa <- data %>%
     pf_ratio = pf_ratio,
     sf_ratio = sf_ratio,
     resp_low_pao2 = daily_resp_lowest_pao2,
-    resp_low_spo2 = daily_resp_lowest)) %>%
+    resp_low_spo2 = daily_resp_lowest,
+    low_spo2 = daily_spo2_lowest)) %>%
   
   ## coagulation
   mutate(sofa_coag   = calc_sofa_coag(platelets = daily_platelet_8a)) %>%
