@@ -196,7 +196,8 @@ calc_sofa_rena <- function(cr) {
 ## sf_ratio  - worst SpO2/FiO2 ratio
 ## resp_low_pao2 - Respiratory support at the time of lowest PaO2 measurement on this day
 ## resp_low_spo2 - Respiratory support at the time of lowest SpO2 measurement on this day
-calc_sofa_2_resp <- function(pf_ratio, sf_ratio, resp_low_pao2, resp_low_spo2) {
+## low_spo2 - lowest SpO2 (e.g., daily_spo2_lowest_m2)
+calc_sofa_2_resp <- function(pf_ratio, sf_ratio, resp_low_pao2, resp_low_spo2, low_spo2) {
   
   ## if P/F available, use that and corresponding respiratory support value
   pf_available <- !is.na(pf_ratio) 
@@ -219,8 +220,8 @@ calc_sofa_2_resp <- function(pf_ratio, sf_ratio, resp_low_pao2, resp_low_spo2) {
     TRUE ~ NA)
   
   case_when(
-    ## any ECMO
-    ecmo ~ 4,
+    # ## any ECMO
+    # ecmo ~ 4,
     
     ## P/F criteria
     ( pf_available & pf_ratio <= 75 ) & (is.na(adv_vent) | adv_vent) ~ 4,
@@ -235,6 +236,9 @@ calc_sofa_2_resp <- function(pf_ratio, sf_ratio, resp_low_pao2, resp_low_spo2) {
     (!pf_available & sf_ratio <= 249)                                ~ 2,
     (!pf_available & sf_ratio <= 300)                                ~ 1,
     (!pf_available & sf_ratio >  300)                                ~ 0,
+    
+    ## if room air and SpO2 > 97, score 0
+    grepl('room air', resp_low) & low_spo2 > 97                      ~ 0,
     
     ## not enough information
     TRUE ~ NA
