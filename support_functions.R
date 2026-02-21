@@ -324,14 +324,14 @@ calc_sofa_2_card <- function(sbp, dbp, dopa_mcg, dopa_mcgkg, dobu_mcg, dobu_mcgk
   
   ## calculate cardiovascular component
   case_when(
+    ecmo ~ 4,
     epin_mcgkg + nore_mcgkg > 0.4 |
       ((epin_mcgkg + nore_mcgkg > 0.2) &
          (dopa_mcgkg > 0.0 |
           dobu_mcgkg > 0.0 |
           phen_mcgkg > 0.0 | 
           vaso_dose  > 0.0 |
-          ang2_mcgkg > 0.0 |
-          ecmo)) |
+          ang2_mcgkg > 0.0)) |
       (dopa_only & dopa_mcgkg > 40) ~ 4,
     epin_mcgkg + nore_mcgkg > 0.2 |
       ((epin_mcgkg + nore_mcgkg > 0) &
