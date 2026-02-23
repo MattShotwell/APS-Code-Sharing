@@ -363,14 +363,12 @@ calc_sofa_2_card <- function(sbp, dbp, dopa_mcg, dopa_mcgkg, dobu_mcg, dobu_mcgk
 calc_sofa_2_cns <- function(gcs, del_med = FALSE) {
   
   ## treat 'not documented' as missing
-  gcs <- ifelse(gcs == 'not documented', NA, gcs)
+  gcs <- if_else(gcs == 'not documented', NA, gcs)
 
+  gcs_num <- as.numeric(sub('T', '', gcs))
+  
   ## GCS contains T/patient was intubated/no verbal score:
-  gcs_imput <- ifelse(grepl('T$', gcs),
-    ## extract quantitative component of GCS and add 4  
-    as.numeric(sub('T', '', gcs))+4,
-    ## otherwise take gcs value as is
-    gcs)
+  gcs_imput <- ifelse(grepl('T$', gcs), gcs_num + 4, gcs_num)
   
   ## convert to SOFA CNS score
   score <- case_when(
