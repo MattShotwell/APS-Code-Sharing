@@ -201,7 +201,7 @@ calc_sofa_2_resp <- function(pf_ratio, sf_ratio, resp_low_pao2, resp_low_spo2, l
   
   ## if P/F available, use that and corresponding respiratory support value
   pf_available <- !is.na(pf_ratio) 
-  resp_low <- ifelse(pf_available, resp_low_pao2, resp_low_spo2)
+  resp_low <- if_else(pf_available, resp_low_pao2, resp_low_spo2)
   
   ## ECMO
   ecmo <- grepl('ECMO', resp_low)
