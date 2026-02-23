@@ -510,24 +510,68 @@ data_sofa %>%
     labs(x='Study Day', y='Participant Count', fill='Score', title='SOFA-2 Total Score')
 ```
 
-### Plot of reasons for missing scores
+### Plot of reasons for unmeasured scores
 
 ```{r fold=TRUE}
 data_sofa %>%
-  select(record_id, study_day, sofa_2_unmeasured_reason) %>%
   mutate(study_day = factor(study_day, levels=-2:7)) %>%
-  rename(sofa_missing_reason = sofa_2_unmeasured_reason) %>%
-  mutate(sofa_missing_reason =
-    ifelse(is.na(sofa_missing_reason), 'Not missing', sofa_missing_reason)) %>%
-  mutate(sofa_missing_reason = factor(sofa_missing_reason, levels=c(
+  mutate(sofa_2_reason = case_when(
+    !is.na(sofa_2_totl) | !is.na(sofa_2_totl_impu) ~ 'Measured/Imputed',
+    # !is.na(sofa_2_totl) ~ 'Measured',
+    # is.na(sofa_2_totl) & !is.na(sofa_2_totl_impu) ~ 'Imputed',
+    is.na(sofa_2_totl_impu) ~ sofa_2_unmeasured_reason,
+    TRUE ~ NA)) %>%
+  mutate(sofa_2_reason = factor(sofa_2_reason, levels=c(
     "Pre-hospital", "Discharged", "Deceased",
-    "Discontinued - No further data collection", "Other",
-    "Not missing"))) %>%
-  group_by(study_day, sofa_missing_reason) %>%
+    "Discontinued - No further data collection",
+    "Measured/Imputed"))) %>%
+  group_by(study_day, sofa_2_reason) %>%
   summarise(count = n(), .groups='drop') %>%
-  ggplot(aes(x=study_day, y=count, fill=sofa_missing_reason)) +
+  ggplot(aes(x=study_day, y=count, fill=sofa_2_reason)) +
     geom_bar(stat="identity", position='stack') +
-    labs(x='Study Day', y='Participant Count', fill='Reason', title='SOFA-2 Missing Reason') +
+    labs(x='Study Day', y='Participant Count', fill='Reason', title='SOFA-2 Unmeasured Reason') +
     scale_fill_manual(values = c(hue_pal()(5), "grey70")) +
     theme_light()
+```
+
+
+```{r}
+data_sofa_meas <- data_sofa %>% 
+  select(record_id, study_day, matches('sofa_2_(resp|coag|livr|card|cns|rena)$')) %>%
+  pivot_longer(
+    cols=starts_with('sofa_2'),
+    names_to='component',
+    names_pattern='^sofa_2_(.+)$',
+    values_to = 'value_meas')
+
+data_sofa_impu <- data_sofa %>% 
+  select(record_id, study_day, matches('sofa_2_(resp|coag|livr|card|cns|rena)_impu')) %>%
+  pivot_longer(
+    cols=starts_with('sofa_2'),
+    names_to='component',
+    names_pattern='^sofa_2_(.+)_impu$',
+    values_to = 'value_impu')
+
+data_sofa_meas_impu <- full_join(data_sofa_meas, data_sofa_impu,
+  by=c('record_id', 'study_day', 'component')) %>%
+  mutate(reason = case_when(
+    !is.na(value_meas) ~ 'Measured',
+    !is.na(value_impu) ~ 'Imputed',
+    TRUE ~ 'Unmeasured'
+  ))
+
+data_sofa_meas_impu %>%
+  mutate(component = case_match(component,
+    "resp" ~ "Respiratory",
+    "coag" ~ "Coagulation",
+    "livr" ~ "Liver",
+    "card" ~ "Cardiovascular",
+    "cns"  ~ "CNS",
+    "rena" ~ "Renal")) %>%
+  group_by(study_day, component, reason) %>%
+  summarise(count = n(), .groups='drop') %>%
+  ggplot(aes(x=study_day, y=count, fill=reason)) +
+    geom_bar(stat="identity", position='stack') +
+    facet_wrap(~component) +
+  labs(x='Study Day', y='Participant Count', fill='Score', title='SOFA-2 Component Measured')
 ```
