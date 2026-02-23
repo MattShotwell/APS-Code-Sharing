@@ -204,7 +204,7 @@ calc_sofa_2_resp <- function(pf_ratio, sf_ratio, resp_low_pao2, resp_low_spo2, l
   resp_low <- if_else(pf_available, resp_low_pao2, resp_low_spo2)
   
   ## ECMO
-  ecmo <- grepl('ECMO', resp_low)
+  ecmo <- grepl('^ECMO', resp_low)
   
   ## advanced ventilatory support
   adv_vent <- case_when(
@@ -237,8 +237,8 @@ calc_sofa_2_resp <- function(pf_ratio, sf_ratio, resp_low_pao2, resp_low_spo2, l
     (!pf_available & sf_ratio <= 300)                                ~ 1,
     (!pf_available & sf_ratio >  300)                                ~ 0,
     
-    ## if room air and SpO2 > 97, score 0
-    grepl('room air', resp_low) & low_spo2 > 97                      ~ 0,
+    ## if not on ECMO and SpO2 > 97, score 0
+    !ecmo & low_spo2 > 97                                            ~ 0,
     
     ## not enough information
     TRUE ~ NA
@@ -324,7 +324,7 @@ calc_sofa_2_card <- function(sbp, dbp, dopa_mcg, dopa_mcgkg, dobu_mcg, dobu_mcgk
     ang2_mcgkg == 0 &
     vaso_dose  == 0
     
-  ecmo <- grepl('ECMO', resp_supp)
+  ecmo <- grepl('^ECMO', resp_supp)
   
   ## calculate cardiovascular component
   case_when(
