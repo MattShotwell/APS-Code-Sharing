@@ -312,9 +312,9 @@ data_sofa <- data %>%
     resp_low_spo2 = daily_resp_lowest,
     fio2_low_spo2 = daily_fio2_lowest,
     o2_low_spo2 = daily_o2_lowest)) %>%
-  mutate(sofa_resp = calc_sofa_resp(
-    pf_ratio = pf_ratio,
-    sf_ratio = sf_ratio)) %>%
+  # mutate(sofa_resp = calc_sofa_resp(
+  #   pf_ratio = pf_ratio,
+  #   sf_ratio = sf_ratio)) %>%
   mutate(sofa_2_resp = calc_sofa_2_resp(
     pf_ratio = pf_ratio,
     sf_ratio = sf_ratio,
@@ -323,26 +323,26 @@ data_sofa <- data %>%
     low_spo2 = daily_spo2_lowest)) %>%
   
   ## coagulation
-  mutate(sofa_coag   = calc_sofa_coag(platelets = daily_platelet_8a)) %>%
+  # mutate(sofa_coag   = calc_sofa_coag(platelets = daily_platelet_8a)) %>%
   mutate(sofa_2_coag = calc_sofa_2_coag(platelets = daily_platelet_8a)) %>%
   
   ## liver
-  mutate(sofa_livr   = calc_sofa_livr(bilirubin = daily_tbili_8a)) %>%
+  # mutate(sofa_livr   = calc_sofa_livr(bilirubin = daily_tbili_8a)) %>%
   mutate(sofa_2_livr = calc_sofa_2_livr(bilirubin = daily_tbili_8a)) %>%
   
   ## cardiovascular
-  mutate(sofa_card = calc_sofa_card(
-    sbp = daily_sbp_8a,
-    dbp = daily_sbp_8a,
-    dopa_mcg = daily_dopa_dose_8a_mcg,
-    dopa_mcgkg = daily_dopa_dos_8a_mcgkg,
-    dobu_mcg = daily_dobuta_8a_mcg,
-    dobu_mcgkg = daily_dobuta_8a_mcgkg,
-    epin_mcg = daily_epi_dose_8a_mcg,
-    epin_mcgkg = daily_epi_dose_8a_mcgkg,
-    nore_mcg = daily_ne_dose_8a_mcg,
-    nore_mcgkg = daily_ne_dose_8a_mcgkg,
-    weight_kg = m_weight_kg)) %>%
+  # mutate(sofa_card = calc_sofa_card(
+  #   sbp = daily_sbp_8a,
+  #   dbp = daily_sbp_8a,
+  #   dopa_mcg = daily_dopa_dose_8a_mcg,
+  #   dopa_mcgkg = daily_dopa_dos_8a_mcgkg,
+  #   dobu_mcg = daily_dobuta_8a_mcg,
+  #   dobu_mcgkg = daily_dobuta_8a_mcgkg,
+  #   epin_mcg = daily_epi_dose_8a_mcg,
+  #   epin_mcgkg = daily_epi_dose_8a_mcgkg,
+  #   nore_mcg = daily_ne_dose_8a_mcg,
+  #   nore_mcgkg = daily_ne_dose_8a_mcgkg,
+  #   weight_kg = m_weight_kg)) %>%
   mutate(sofa_2_card = calc_sofa_2_card(
     sbp = daily_sbp_8a,
     dbp = daily_sbp_8a,
@@ -367,7 +367,7 @@ data_sofa <- data %>%
   mutate(sofa_cns_gcs_t = ifelse(is.na(daily_gcs_8a), NA, grepl('T', daily_gcs_8a))) %>%
   ## create variable where GCS with a 'T' are set to NA
   mutate(sofa_cns_gcs_no_t = as.numeric(daily_gcs_8a)) %>%
-  mutate(sofa_cns   = calc_sofa_cns(gcs = daily_gcs_8a)) %>%
+  # mutate(sofa_cns   = calc_sofa_cns(gcs = daily_gcs_8a)) %>%
   mutate(sofa_2_cns = calc_sofa_2_cns(gcs = daily_gcs_8a)) %>%
   
   ## Renal
@@ -382,11 +382,11 @@ data_sofa <- data %>%
     (is.na(rrt_endat) | study_day <= as.numeric(rrt_endat - enrollment_date)) ~ TRUE,
     TRUE ~ FALSE
   )) %>%
-  mutate(sofa_rena   = calc_sofa_rena(daily_cr_8a)) %>%
+  # mutate(sofa_rena   = calc_sofa_rena(daily_cr_8a)) %>%
   mutate(sofa_2_rena = calc_sofa_2_rena(daily_cr_8a, rrt = chronic_or_new_rrt)) %>%
   
   ## Total SOFA
-  mutate(sofa_totl   = sofa_resp + sofa_coag + sofa_livr + sofa_card + sofa_cns + sofa_rena) %>%
+  # mutate(sofa_totl   = sofa_resp + sofa_coag + sofa_livr + sofa_card + sofa_cns + sofa_rena) %>%
   mutate(sofa_2_totl = sofa_2_resp + sofa_2_coag + sofa_2_livr + sofa_2_card + sofa_2_cns + sofa_2_rena) %>%
 
   ## get death and status information
@@ -413,8 +413,8 @@ data_sofa <- data %>%
   mutate(icu_end_day= as.numeric(difftime(as.Date(icu_endat), as.Date(enrollment_time), units='days'))) %>%
   
   ## calculate whether all SOFA components are missing
-  mutate(sofa_all_na = if_all(all_of(
-    paste0('sofa_', c('resp','coag','livr','card','cns','rena'))), is.na)) %>%
+  # mutate(sofa_all_na = if_all(all_of(
+  #   paste0('sofa_', c('resp','coag','livr','card','cns','rena'))), is.na)) %>%
   mutate(sofa_2_all_na = if_all(all_of(
     paste0('sofa_2_', c('resp','coag','livr','card','cns','rena'))), is.na)) %>%
 
