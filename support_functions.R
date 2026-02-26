@@ -261,7 +261,7 @@ calc_sofa_card <- function(sbp, dbp, dopa_mcg, dopa_mcgkg, dobu_mcg, dobu_mcgkg,
 calc_sofa_cns <- function(gcs) {
 
   ## treat 'not documented' as NA
-  gcs <- ifelse(gcs == 'not documented', NA, gcs)
+  gcs <- if_else(gcs == 'not documented', NA, gcs)
   ## GCS contains T/patient was intubated/no verbal score
   gcs_intub <- grepl('T$', gcs)
   ## extract quantitative component of GCS
@@ -269,7 +269,7 @@ calc_sofa_cns <- function(gcs) {
 
   ## imputed GCS
   gcs_imput <- case_when(
-    TRUE ~ gcs_quant
+    TRUE ~ gcs_quant + 4
   )
 
   ## convert to SOFA CNS score
@@ -299,15 +299,17 @@ calc_sofa_rena <- function(cr) {
 ## calculate respiratory SOFA-2 score
 ## pf_ratio  - worst PaO2/FiO2 ratio
 ## sf_ratio  - worst SpO2/FiO2 ratio
+## resp_low_pao2 - Respiratory support at the time of lowest PaO2 measurement on this day
 ## resp_low_spo2 - Respiratory support at the time of lowest SpO2 measurement on this day
-calc_sofa_2_resp <- function(pf_ratio, sf_ratio, resp_low_pao2, resp_low_spo2) {
+## low_spo2 - lowest SpO2 (e.g., daily_spo2_lowest_m2)
+calc_sofa_2_resp <- function(pf_ratio, sf_ratio, resp_low_pao2, resp_low_spo2, low_spo2) {
   
   ## if P/F available, use that and corresponding respiratory support value
   pf_available <- !is.na(pf_ratio) 
-  resp_low <- ifelse(pf_available, resp_low_pao2, resp_low_spo2)
+  resp_low <- if_else(pf_available, resp_low_pao2, resp_low_spo2)
   
   ## ECMO
-  ecmo <- grepl('ECMO', resp_low)
+  ecmo <- grepl('^ECMO', resp_low)
   
   ## advanced ventilatory support
   adv_vent <- case_when(
@@ -323,8 +325,8 @@ calc_sofa_2_resp <- function(pf_ratio, sf_ratio, resp_low_pao2, resp_low_spo2) {
     TRUE ~ NA)
   
   case_when(
-    ## any ECMO
-    ecmo ~ 4,
+    # ## any ECMO
+    # ecmo ~ 4,
     
     ## P/F criteria
     ( pf_available & pf_ratio <= 75 ) & (is.na(adv_vent) | adv_vent) ~ 4,
@@ -339,6 +341,9 @@ calc_sofa_2_resp <- function(pf_ratio, sf_ratio, resp_low_pao2, resp_low_spo2) {
     (!pf_available & sf_ratio <= 249)                                ~ 2,
     (!pf_available & sf_ratio <= 300)                                ~ 1,
     (!pf_available & sf_ratio >  300)                                ~ 0,
+    
+    ## if not on ECMO and SpO2 > 97, score 0
+    !ecmo & low_spo2 > 97                                            ~ 0,
     
     ## not enough information
     TRUE ~ NA
@@ -424,18 +429,18 @@ calc_sofa_2_card <- function(sbp, dbp, dopa_mcg, dopa_mcgkg, dobu_mcg, dobu_mcgk
     ang2_mcgkg == 0 &
     vaso_dose  == 0
     
-  ecmo <- grepl('ECMO', resp_supp)
+  ecmo <- grepl('^ECMO', resp_supp)
   
   ## calculate cardiovascular component
   case_when(
+    ecmo ~ 4,
     epin_mcgkg + nore_mcgkg > 0.4 |
       ((epin_mcgkg + nore_mcgkg > 0.2) &
          (dopa_mcgkg > 0.0 |
           dobu_mcgkg > 0.0 |
           phen_mcgkg > 0.0 | 
           vaso_dose  > 0.0 |
-          ang2_mcgkg > 0.0 |
-          ecmo)) |
+          ang2_mcgkg > 0.0)) |
       (dopa_only & dopa_mcgkg > 40) ~ 4,
     epin_mcgkg + nore_mcgkg > 0.2 |
       ((epin_mcgkg + nore_mcgkg > 0) &
@@ -463,15 +468,13 @@ calc_sofa_2_card <- function(sbp, dbp, dopa_mcg, dopa_mcgkg, dobu_mcg, dobu_mcgk
 calc_sofa_2_cns <- function(gcs, del_med = FALSE) {
   
   ## treat 'not documented' as missing
-  gcs <- ifelse(gcs == 'not documented', NA, gcs)
+  gcs <- if_else(gcs == 'not documented', NA, gcs)
 
+  gcs_num <- as.numeric(sub('T', '', gcs))
+  
   ## GCS contains T/patient was intubated/no verbal score:
-  gcs_imput <- ifelse(grepl('T$', gcs),
-    ## extract quantitative component of GCS and add 4
-    as.numeric(sub('T', '', gcs))+4,
-    ## otherwise take gcs value as is
-    gcs)
-
+  gcs_imput <- ifelse(grepl('T$', gcs), gcs_num + 4, gcs_num)
+  
   ## convert to SOFA CNS score
   score <- case_when(
     gcs_imput <= 5  ~ 4,
