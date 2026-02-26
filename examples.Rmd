@@ -491,7 +491,9 @@ data_sofa %>%
   ggplot(aes(x=study_day, y=count, fill=value)) +
     geom_bar(stat="identity", position='stack') +
     facet_wrap(~component) +
-  labs(x='Study Day', y='Participant Count', fill='Score', title='SOFA-2 Component Scores')
+  labs(x='Study Day', y='Participant Count', fill='Score', title='SOFA-2 Component Scores') +
+  scale_fill_brewer(palette = "Accent", na.value='grey50',
+    labels = function(z) ifelse(is.na(z), "Unmeasured", z))
 ```
 
 ### Plot of total scores
@@ -507,7 +509,9 @@ data_sofa %>%
   summarise(count = n(), .groups='drop') %>%
   ggplot(aes(x=study_day, y=count, fill=sofa_2_totl_impu)) +
     geom_bar(stat="identity", position='stack') +
-    labs(x='Study Day', y='Participant Count', fill='Score', title='SOFA-2 Total Score')
+    labs(x='Study Day', y='Participant Count', fill='Score', title='SOFA-2 Total Score') +
+  scale_fill_brewer(palette = "Accent", na.value='grey50',
+    labels = function(z) ifelse(is.na(z), "Unmeasured", z))
 ```
 
 ### Plot of reasons for unmeasured scores
@@ -524,14 +528,17 @@ data_sofa %>%
   mutate(sofa_2_reason = factor(sofa_2_reason, levels=c(
     "Pre-hospital", "Discharged", "Deceased",
     "Discontinued - No further data collection",
-    "Measured/Imputed"))) %>%
+    "Measured/Imputed"), labels=c(
+    "Pre-hospital", "Discharged", "Deceased",
+    "Discontinued", "Measured/Imputed"))) %>%
   group_by(study_day, sofa_2_reason) %>%
   summarise(count = n(), .groups='drop') %>%
   ggplot(aes(x=study_day, y=count, fill=sofa_2_reason)) +
     geom_bar(stat="identity", position='stack') +
     labs(x='Study Day', y='Participant Count', fill='Reason', title='SOFA-2 Unmeasured Reason') +
-    scale_fill_manual(values = c(hue_pal()(5), "grey70")) +
-    theme_light()
+    theme_light() +
+  scale_fill_brewer(palette = "Accent", na.value='grey50',
+    labels = function(z) ifelse(is.na(z), "Unmeasured", z))
 ```
 
 
@@ -573,5 +580,7 @@ data_sofa_meas_impu %>%
   ggplot(aes(x=study_day, y=count, fill=reason)) +
     geom_bar(stat="identity", position='stack') +
     facet_wrap(~component) +
-  labs(x='Study Day', y='Participant Count', fill='Score', title='SOFA-2 Component Measured')
+  labs(x='Study Day', y='Participant Count', fill='Score', title='SOFA-2 Component Measured') +
+  scale_fill_brewer(palette = "Accent", na.value='grey50',
+    labels = function(z) ifelse(is.na(z), "Unmeasured", z))
 ```
