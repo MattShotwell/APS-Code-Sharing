@@ -305,7 +305,6 @@ wrapper_calc_sys_pneumonia_0 <- function(data, dictionary) {
       by = 'daily_resp_8a_m2'
     ) |>
     # Process GCS values to handle T values
-    # QUESTION: is this an okay way to handle this?
     mutate(
       daily_gcs_8a_0_processed = process_gcs_value(daily_gcs_8a_0),
       daily_gcs_8a_m1_processed = process_gcs_value(daily_gcs_8a_m1),

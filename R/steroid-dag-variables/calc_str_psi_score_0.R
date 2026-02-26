@@ -110,7 +110,6 @@ calc_str_psi_score_0 <- function(
   gcs_numeric <- as.numeric(gcs)
 
   # Get CAM value with lookback
-  # QUESTION: Do we use lookback for CAM here?
   cam <- get_value_with_lookback(cam_0, cam_m1, cam_m2)
   cam_positive <- cam == "Positive for delirium at least once on this day"
 
