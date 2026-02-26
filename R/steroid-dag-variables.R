@@ -130,7 +130,7 @@ calc_all_steroid_dag_variables <- function(data, dictionary) {
         left_join(wrapper_calc_sys_active_covid19_0(data, dictionary), by = "record_id") |>
         left_join(wrapper_calc_sys_active_fungal_0(data), by = "record_id") |>
         left_join(wrapper_calc_sys_active_influenza_0(data, dictionary), by = "record_id") |>
-        left_join(wrapper_calc_sys_ards_0(data), by = "record_id") |>
+        left_join(wrapper_calc_sys_ards_0(data, dictionary), by = "record_id") |>
         left_join(wrapper_calc_sys_baseline_performance_status_0(data, dictionary), by = "record_id") |>
         left_join(wrapper_calc_sys_chron_immunocomp_0(data), by = "record_id") |>
         left_join(wrapper_calc_sys_delirium_0(data), by = "record_id") |>
@@ -138,7 +138,7 @@ calc_all_steroid_dag_variables <- function(data, dictionary) {
         left_join(wrapper_calc_sys_hypotension_sev_0(data), by = "record_id") |>
         left_join(wrapper_calc_sys_obstruct_lung_0(data), by = "record_id") |>
         left_join(wrapper_calc_sys_organ_failure_trajectory(data), by = "record_id") |>
-        left_join(wrapper_calc_sys_pneumonia_0(data), by = "record_id") |>
+        left_join(wrapper_calc_sys_pneumonia_0(data, dictionary), by = "record_id") |>
         left_join(wrapper_calc_sys_sepsis_0(data, dictionary), by = "record_id") |>
         left_join(wrapper_calc_sys_septic_shock_0(data, dictionary), by = "record_id")
 }

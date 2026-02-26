@@ -12,6 +12,18 @@ calc_sys_sepsis_0 <- function(
   daily_antibiotics_0,
   daily_antiviral_0,
   daily_antifungal_0,
+  mh_antivirals_type___1,
+  mh_antivirals_type___2,
+  mh_antivirals_type___3,
+  mh_antivirals_type___6,
+  mh_antivirals_type___7,
+  mh_antivirals_type___8,
+  mh_antivirals_type___9,
+  mh_antivirals_type___10,
+  mh_antivirals_type___11,
+  mh_antivirals_type___12,
+  mh_antivirals_type___13,
+  mh_antivirals_type___15,
   antifungal_agents_0___1,
   antifungal_agents_0___2,
   antifungal_agents_0___3,
@@ -21,6 +33,22 @@ calc_sys_sepsis_0 <- function(
   antifungal_agents_0___13,
   has_qualifying_pathogen
 ) {
+
+  # Check if qualifying antivirals were administered
+  qualifying_antiviral <- daily_antiviral_0 == 'Administered' & (
+    is_checked(mh_antivirals_type___1) |
+    is_checked(mh_antivirals_type___2) |
+    is_checked(mh_antivirals_type___3) |
+    is_checked(mh_antivirals_type___6) |
+    is_checked(mh_antivirals_type___7) |
+    is_checked(mh_antivirals_type___8) |
+    is_checked(mh_antivirals_type___9) |
+    is_checked(mh_antivirals_type___10) |
+    is_checked(mh_antivirals_type___11) |
+    is_checked(mh_antivirals_type___12) |
+    is_checked(mh_antivirals_type___13) |
+    is_checked(mh_antivirals_type___15)
+  )
 
   # Check if qualifying antifungals were administered
   qualifying_antifungal <- daily_antifungal_0 == 'Administered' & (
@@ -36,7 +64,7 @@ calc_sys_sepsis_0 <- function(
   # Sepsis is present if any of the criteria are met
   dplyr::case_when(
     daily_antibiotics_0 == 'Administered' |
-      daily_antiviral_0 == 'Administered' |
+      qualifying_antiviral |
       has_qualifying_pathogen |
       qualifying_antifungal ~ 1,
     .default = 0
@@ -75,6 +103,25 @@ wrapper_calc_sys_sepsis_0 <- function(data, dictionary) {
     group_by(record_id) |>
     summarise(has_qualifying_pathogen = TRUE, .groups = 'drop')
 
+  # Get antiviral type data from Day 0 event
+  data_day0_antivirals <- data |>
+    filter(event_label == 'Day 0') |>
+    select(
+      record_id,
+      mh_antivirals_type___1,
+      mh_antivirals_type___2,
+      mh_antivirals_type___3,
+      mh_antivirals_type___6,
+      mh_antivirals_type___7,
+      mh_antivirals_type___8,
+      mh_antivirals_type___9,
+      mh_antivirals_type___10,
+      mh_antivirals_type___11,
+      mh_antivirals_type___12,
+      mh_antivirals_type___13,
+      mh_antivirals_type___15
+    )
+
   # Calculate sepsis classification
   data_sepsis <- data |>
     filter(event_label == 'Daily In-Hospital Forms') |>
@@ -91,6 +138,7 @@ wrapper_calc_sys_sepsis_0 <- function(data, dictionary) {
       antifungal_agents_0___9,
       antifungal_agents_0___13
     ) |>
+    left_join(data_day0_antivirals, by = 'record_id') |>
     left_join(data_qualifying_pathogen, by = 'record_id') |>
     # If no qualifying pathogen found, set to FALSE
     mutate(has_qualifying_pathogen = coalesce(has_qualifying_pathogen, FALSE)) |>
@@ -99,6 +147,18 @@ wrapper_calc_sys_sepsis_0 <- function(data, dictionary) {
         daily_antibiotics_0 = daily_antibiotics_0,
         daily_antiviral_0 = daily_antiviral_0,
         daily_antifungal_0 = daily_antifungal_0,
+        mh_antivirals_type___1 = mh_antivirals_type___1,
+        mh_antivirals_type___2 = mh_antivirals_type___2,
+        mh_antivirals_type___3 = mh_antivirals_type___3,
+        mh_antivirals_type___6 = mh_antivirals_type___6,
+        mh_antivirals_type___7 = mh_antivirals_type___7,
+        mh_antivirals_type___8 = mh_antivirals_type___8,
+        mh_antivirals_type___9 = mh_antivirals_type___9,
+        mh_antivirals_type___10 = mh_antivirals_type___10,
+        mh_antivirals_type___11 = mh_antivirals_type___11,
+        mh_antivirals_type___12 = mh_antivirals_type___12,
+        mh_antivirals_type___13 = mh_antivirals_type___13,
+        mh_antivirals_type___15 = mh_antivirals_type___15,
         antifungal_agents_0___1 = antifungal_agents_0___1,
         antifungal_agents_0___2 = antifungal_agents_0___2,
         antifungal_agents_0___3 = antifungal_agents_0___3,
