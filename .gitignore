@@ -1,3 +1,9 @@
 *.RData
 *.html
 local/*
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.DS_Store
+*.Rproj

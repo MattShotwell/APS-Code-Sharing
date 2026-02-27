@@ -20,13 +20,118 @@ parse_choices <-  function(choices) {
 get_code_label_map <- function(field_name, dictionary) {
   field_name_orig <- field_name
   field_name_code <- paste0(field_name, '_code')
-  dictionary %>% 
+  dictionary %>%
     filter(field_name == field_name_orig) %>%
     pull(select_choices_or_calculations) %>%
     parse_choices() %>%
     rename(!!field_name_orig := value,
            !!field_name_code := key)
 }
+
+
+## View common dictionary fields for a given field name
+## field - name of field corresponding to 'field_name' in dictionary
+## dictionary - data dictionary table
+view_dict <- function(field, dictionary) {
+  dictionary %>%
+    filter(field_name == field) %>%
+    select('field_name', 'field_type', 'form_label', 'field_label',
+           'select_choices_or_calculations', 'branching_logic') %>%
+    unclass()
+}
+
+# Helper function to determine the event label associated with a given data field
+view_label <- function(data, field) {
+  # Handle both quoted strings and unquoted names
+  field_name <- rlang::as_name(rlang::enquo(field))
+
+  data |>
+    filter(!is.na(.data[[field_name]])) |>
+    count(event_label) |>
+    pull(event_label) |>
+    as.character()
+}
+
+
+#' Helper function to identify "Checked" values
+is_checked <- function(x) {
+  x == "Checked"
+}
+
+#' Helper function to identify "Unchecked" values
+is_unchecked <- function(x) {
+  x == "Unchecked"
+}
+
+#' Helper function to identify "Unknown" values
+is_unknown <- function(x) {
+  x == "Unknown"
+}
+
+# Helper function: Get value with lookback (Day 0 -> Day -1 -> Day -2)
+# - Used to find the most recent non-missing value for a given variable
+get_value_with_lookback <- function(val_0, val_m1, val_m2) {
+  dplyr::coalesce(val_0, val_m1, val_m2)
+}
+
+# Helper function: Process single GCS value, treating T and 'not documented' as 15
+# - If GCS contains 'T' or is 'not documented', return "15" (normal GCS, 0 SOFA points)
+# - Otherwise return the GCS value
+# - This is consistent with Footnote C from the SOFA 2 paper
+process_gcs_value <- function(daily_gcs_8a) {
+  # Convert to character from factor
+  gcs <- as.character(daily_gcs_8a)
+
+  # Treat 'not documented' as 15
+  gcs <- ifelse(gcs == 'not documented', "15", gcs)
+
+  # Treat any value with 'T' as 15 (normal GCS)
+  gcs <- ifelse(grepl('T', gcs, fixed = TRUE), "15", gcs)
+
+  return(gcs)
+}
+
+# Helper function: Get GCS with lookback, excluding T values and 'not documented'
+# - 1. Look back to find the last available value without a T
+# - 2. If no prior value available without a T, then assume a "normal" GCS/SOFA score for
+#      that patient. Award 0 GCS/SOFA points (return "15" which corresponds to 0 points for
+#      both measures). This is consistent with Footnote C from the SOFA 2 paper.
+get_gcs_with_lookback <- function(daily_gcs_8a_0, daily_gcs_8a_m1, daily_gcs_8a_m2) {
+  # Convert to character from factor for all time points
+  gcs_0 <- as.character(daily_gcs_8a_0)
+  gcs_m1 <- as.character(daily_gcs_8a_m1)
+  gcs_m2 <- as.character(daily_gcs_8a_m2)
+
+  # Treat 'not documented' as NA for all time points
+  gcs_0 <- ifelse(gcs_0 == 'not documented', NA, gcs_0)
+  gcs_m1 <- ifelse(gcs_m1 == 'not documented', NA, gcs_m1)
+  gcs_m2 <- ifelse(gcs_m2 == 'not documented', NA, gcs_m2)
+
+  # Look back to find the last available value without a T
+  gcs <- dplyr::case_when(
+    !is.na(gcs_0) & !grepl('T', gcs_0, fixed = TRUE) ~ gcs_0,
+    !is.na(gcs_m1) & !grepl('T', gcs_m1, fixed = TRUE) ~ gcs_m1,
+    !is.na(gcs_m2) & !grepl('T', gcs_m2, fixed = TRUE) ~ gcs_m2,
+    .default = "15"  # Default to normal GCS if no value without T is found
+  )
+
+  return(gcs)
+}
+
+# Helper function: Display count table with grand total row
+# Usage: data |> display_count_with_total(column_name)
+# - Most commonly used in .Rmd files to dispaly a count table for a given
+#   variable with a grand total row at the bottom
+display_grand_total <- function(data, col) {
+  data |>
+    count({{ col }}) |>
+    gt() |>
+    grand_summary_rows(
+      columns = n,
+      fns = list(label = md("**TOTAL**"), id = "totals") ~ sum(.)
+    )
+}
+
 
 ## SOFA score functions
 
@@ -37,19 +142,19 @@ get_code_label_map <- function(field_name, dictionary) {
 ## o2_low_pao2 - Std. Oxygen L/min at lowest PaO2 (e.g., daily_o2_lowest_pao2_m2)
 calc_pf_ratio <- function(low_pao2, resp_low_pao2, fio2_low_pao2, o2_low_pao2) {
   case_when(
-    
+
     ## patient on ECMO without invasive mechanical ventilation (FiO2 is nonsense)
     resp_low_pao2 == 'ECMO without invasive mechanical ventilation' ~ NA,
-    
+
     ## lowest PaO2 available and patient on IMV, NIV, or HFNC
     !is.na(low_pao2) & !is.na(fio2_low_pao2) ~ low_pao2/fio2_low_pao2,
-    
+
     ## lowest PaO2 available and patient on supplemental oxygen (0.21 + 0.03 * L/min)
     !is.na(low_pao2) & !is.na(o2_low_pao2) ~ low_pao2/pmin(0.21 + 0.03*o2_low_pao2, 1),
-    
+
     ## lowest PaO2 available and patient on room air
     !is.na(low_pao2) & grepl('^No respiratory support', resp_low_pao2) ~ low_pao2/0.21,
-    
+
     TRUE ~ NA
   )
 }
@@ -61,22 +166,22 @@ calc_pf_ratio <- function(low_pao2, resp_low_pao2, fio2_low_pao2, o2_low_pao2) {
 ## o2_low_spo2 - Std. Oxygen L/min at lowest SpO2 (e.g., daily_o2_lowest_m2)
 calc_sf_ratio <- function(low_spo2, resp_low_spo2, fio2_low_spo2, o2_low_spo2) {
   case_when(
-    
+
     ## low SpO2 >97; S/F ratio invalid
     !is.na(low_spo2) & low_spo2 > 97 ~ NA,
-    
+
     ## patient on ECMO without invasive mechanical ventilation (FiO2 is nonsense)
     resp_low_spo2 == 'ECMO without invasive mechanical ventilation' ~ NA,
-    
+
     ## lowest SpO2 available and patient on IMV, NIV, or HFNC
     !is.na(low_spo2) & !is.na(fio2_low_spo2) ~ low_spo2/fio2_low_spo2,
-    
+
     ## lowest SpO2 available and patient on supplemental oxygen (0.21 + 0.03 * L/min)
     !is.na(low_spo2) & !is.na(o2_low_spo2) ~ low_spo2/pmin(0.21 + 0.03*o2_low_spo2, 1),
-    
+
     ## lowest SpO2 available and patient on room air
     !is.na(low_spo2) & grepl('^No respiratory support', resp_low_spo2) ~ low_spo2/0.21,
-    
+
     TRUE ~ NA
   )
 }
@@ -137,13 +242,13 @@ calc_sofa_card <- function(sbp, dbp, dopa_mcg, dopa_mcgkg, dobu_mcg, dobu_mcgkg,
                            epin_mcg, epin_mcgkg, nore_mcg, nore_mcgkg, weight_kg) {
   map <- 1/3*sbp + 2/3*dbp
   case_when(
-    dopa_mcgkg > 15  | dopa_mcg/weight_kg > 15  | 
+    dopa_mcgkg > 15  | dopa_mcg/weight_kg > 15  |
       epin_mcgkg > 0.1 | epin_mcg/weight_kg > 0.1 |
       nore_mcgkg > 0.1 | nore_mcg/weight_kg > 0.1  ~ 4,
-    dopa_mcgkg > 5.1 | dopa_mcg/weight_kg > 5.1 | 
+    dopa_mcgkg > 5.1 | dopa_mcg/weight_kg > 5.1 |
       epin_mcgkg > 0.0 | epin_mcg/weight_kg > 0.0 |
       nore_mcgkg > 0.0 | nore_mcg/weight_kg > 0.0  ~ 3,
-    dopa_mcgkg > 0.0 | dopa_mcg/weight_kg > 0.0 | 
+    dopa_mcgkg > 0.0 | dopa_mcg/weight_kg > 0.0 |
       dobu_mcgkg > 0.0 | dobu_mcg/weight_kg > 0.0  ~ 2,
     map < 70                                       ~ 1,
     map >= 70                                      ~ 0,
@@ -154,19 +259,19 @@ calc_sofa_card <- function(sbp, dbp, dopa_mcg, dopa_mcgkg, dobu_mcg, dobu_mcgkg,
 ## calculate CNS SOFA score
 ## gcs - Glasgow Coma Score
 calc_sofa_cns <- function(gcs) {
-  
+
   ## treat 'not documented' as NA
   gcs <- if_else(gcs == 'not documented', NA, gcs)
   ## GCS contains T/patient was intubated/no verbal score
   gcs_intub <- grepl('T$', gcs)
   ## extract quantitative component of GCS
   gcs_quant <- as.numeric(sub('T', '', gcs))
-  
+
   ## imputed GCS
   gcs_imput <- case_when(
     TRUE ~ gcs_quant + 4
   )
-  
+
   ## convert to SOFA CNS score
   case_when(
     gcs_imput <  6  ~ 4,
@@ -184,7 +289,7 @@ calc_sofa_rena <- function(cr) {
   case_when(
     cr > 5.0 ~ 4,
     cr > 3.5 ~ 3,
-    cr > 2.0 ~ 2, 
+    cr > 2.0 ~ 2,
     cr > 1.2 ~ 1,
     cr > 0.0 ~ 0,
     TRUE ~ NA
@@ -394,7 +499,7 @@ calc_sofa_2_rena <- function(cr, rrt, uop) {
   case_when(
     rrt ~ 4,
     cr > 3.5 ~ 3,
-    cr > 2.0 ~ 2, 
+    cr > 2.0 ~ 2,
     cr > 1.2 ~ 1,
     cr > 0.0 ~ 0,
     TRUE ~ NA
@@ -448,5 +553,60 @@ calc_sofa_2_impute <- function(score, impute_eligible, study_day) {
 }
 
 
+## calculate norepinephrine equivalents (NEE) for vasopressor dosing
+## Converts all vasopressor and inotrope doses to norepinephrine-equivalent mcg/min
+## Used in SOFA cardiovascular scoring and septic shock definitions
+##
+## Parameters: doses in mcg/min or mcg/min/kg for various agents
+## daily_ne_dose_8a_0_mcg - norepinephrine dose (mcg/min)
+## daily_ne_dose_8a_0_mcgkg - norepinephrine dose (mcg/min/kg)
+## daily_epi_dose_8a_0_mcg - epinephrine dose (mcg/min)
+## daily_epi_dose_8a_0_mcgkg - epinephrine dose (mcg/min/kg)
+## daily_phen_dose_8a_0_mcg - phenylephrine dose (mcg/min)
+## daily_phen_dos_8a_0_mcgkg - phenylephrine dose (mcg/min/kg)
+## daily_vaso_dose_8a_0 - vasopressin dose (units/min)
+## daily_dopa_dose_8a_0_mcg - dopamine dose (mcg/min)
+## daily_dopa_dos_8a_0_mcgkg - dopamine dose (mcg/min/kg)
+## daily_ang2_8a_0_mcg - angiotensin II dose (mcg/min)
+## daily_ang2_8a_0_mcgkg - angiotensin II dose (mcg/min/kg)
+## m_weight_kg - patient weight (kg)
+##
+## Returns: norepinephrine equivalent dose (mcg/min)
+## Conversion factors: NE = 1, Epi = 1, Phenylephrine / 10, Vasopressin * 2.5,
+##                     Dopamine / 100, Angiotensin II * 10
+calc_norepi_equivalents <- function(
+  daily_ne_dose_8a_0_mcg,
+  daily_ne_dose_8a_0_mcgkg,
+  daily_epi_dose_8a_0_mcg,
+  daily_epi_dose_8a_0_mcgkg,
+  daily_phen_dose_8a_0_mcg,
+  daily_phen_dos_8a_0_mcgkg,
+  daily_vaso_dose_8a_0,
+  daily_dopa_dose_8a_0_mcg,
+  daily_dopa_dos_8a_0_mcgkg,
+  daily_ang2_8a_0_mcg,
+  daily_ang2_8a_0_mcgkg,
+  m_weight_kg
+) {
 
+  ## Convert all doses to mcg/min using weight if needed
+  ne_dose <- dplyr::coalesce(daily_ne_dose_8a_0_mcg, daily_ne_dose_8a_0_mcgkg * m_weight_kg, 0)
+  epi_dose <- dplyr::coalesce(daily_epi_dose_8a_0_mcg, daily_epi_dose_8a_0_mcgkg * m_weight_kg, 0)
+  phen_dose <- dplyr::coalesce(daily_phen_dose_8a_0_mcg, daily_phen_dos_8a_0_mcgkg * m_weight_kg, 0)
+  dopa_dose <- dplyr::coalesce(daily_dopa_dose_8a_0_mcg, daily_dopa_dos_8a_0_mcgkg * m_weight_kg, 0)
+  ang2_dose <- dplyr::coalesce(daily_ang2_8a_0_mcg, daily_ang2_8a_0_mcgkg * m_weight_kg, 0)
+  vaso_dose <- dplyr::coalesce(daily_vaso_dose_8a_0, 0)
 
+  ## Calculate norepinephrine equivalents
+  ## NE = 1, Epi = 1, Phenylephrine = 10, Vasopressin = 0.04 units = 1 mcg NE equivalent
+  ## Dopamine at high doses ~ 0.01, Angiotensin II ~ 1
+  norepi_equiv <- ne_dose +
+                  epi_dose +
+                  (phen_dose / 10) +
+                  (vaso_dose * 2.5) +
+
+                  (dopa_dose / 100) +
+                  (ang2_dose * 10)
+
+  return(norepi_equiv)
+}
