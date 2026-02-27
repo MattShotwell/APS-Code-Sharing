@@ -18,8 +18,6 @@ calc_str_psi_score_0 <- function(
   m_kid_liver_conditions___2,
 
   cam_0,
-  cam_m1,
-  cam_m2,
 
   daily_gcs_8a_0,
   daily_gcs_8a_m1,
@@ -109,9 +107,8 @@ calc_str_psi_score_0 <- function(
   gcs <- get_gcs_with_lookback(daily_gcs_8a_0, daily_gcs_8a_m1, daily_gcs_8a_m2)
   gcs_numeric <- as.numeric(gcs)
 
-  # Get CAM value with lookback
-  cam <- get_value_with_lookback(cam_0, cam_m1, cam_m2)
-  cam_positive <- cam == "Positive for delirium at least once on this day"
+  # Get CAM value
+  cam_positive <- cam_0 == "Positive for delirium at least once on this day"
 
   # Calculate altered mental status based on the two conditions
   altered_mental_status <- dplyr::case_when(
@@ -192,7 +189,7 @@ wrapper_calc_str_psi_score_0 <- function(data) {
       # This requires joining from multiple event labels
       data |>
         filter(event_label == 'Daily In-Hospital Forms') |>
-        select(record_id, cam_0, cam_m1, cam_m2,
+        select(record_id, cam_0,
                daily_gcs_8a_0, daily_gcs_8a_m1, daily_gcs_8a_m2,
                daily_bun_8a_0, daily_bun_8a_m1, daily_bun_8a_m2,
                daily_gluc_8a_0, daily_gluc_8a_m1, daily_gluc_8a_m2,
@@ -232,8 +229,6 @@ wrapper_calc_str_psi_score_0 <- function(data) {
           m_kid_liver_conditions___2 = m_kid_liver_conditions___2,
           # Altered Mental Status (Daily In-Hospital Forms)
           cam_0 = cam_0,
-          cam_m1 = cam_m1,
-          cam_m2 = cam_m2,
           daily_gcs_8a_0 = daily_gcs_8a_0,
           daily_gcs_8a_m1 = daily_gcs_8a_m1,
           daily_gcs_8a_m2 = daily_gcs_8a_m2,
