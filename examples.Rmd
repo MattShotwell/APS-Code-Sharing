@@ -356,7 +356,7 @@ data_sofa <- data %>%
   #   weight_kg = m_weight_kg)) %>%
   mutate(sofa_2_card = calc_sofa_2_card(
     sbp = daily_sbp_8a,
-    dbp = daily_sbp_8a,
+    dbp = daily_dbp_8a,
     dopa_mcg = daily_dopa_dose_8a_mcg,
     dopa_mcgkg = daily_dopa_dos_8a_mcgkg,
     dobu_mcg = daily_dobuta_8a_mcg,
