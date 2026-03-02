@@ -1,6 +1,6 @@
 ---
 title: "APS Data Examples and Derived Variables"
-author: "M. Shotwell"
+author: "APS Investigators"
 date: "`r Sys.Date()`"
 output:
   html_document:
@@ -25,6 +25,11 @@ source('support_functions.R')
 ## provides "data", "dictionary" and "codebook" in the working environment
 load('20251213_data.RData')
 ```
+
+# Contributors
+
+  - Matt Shotwell - Vanderbilt University Medical Center
+  - Andrew Pulsipher - University of Utah
 
 # Working with the codebook and dictionary
 
