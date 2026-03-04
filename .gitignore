@@ -1,5 +1,6 @@
 *.RData
 *.html
+local/*
 .Rproj.user
 .Rhistory
 .RData
