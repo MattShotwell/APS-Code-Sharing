@@ -23,7 +23,7 @@ source('support_functions.R')
 
 ## load data from N=1000 APS cohort
 ## provides "data", "dictionary" and "codebook" in the working environment
-load('20251213_data.RData')
+load('20260302_data.RData')
 ```
 
 # Contributors
@@ -507,15 +507,30 @@ data_sofa %>%
 
 ### Plot of total scores
 
+Caption: SOFA-2 total scores from study day -2 through day 7 for the first `r nrow(data_sofa)` participants enrolled in the APS Consortium. During hospitalization, missing organ system scores were imputed using the methods recommended in [Ranzani et al; 2025](https://jamanetwork.com/journals/jama/fullarticle/2840822)(Table 2, footnote b). For all but the Liver component, fewer than 6.5% of participant-days during hospitalization required imputation. For the Liver component, 41% of values during hospitalization were imputed due to unmeasured Bilirubin.
+
 ```{r fold=TRUE}
-data_sofa %>%
-  select(record_id, study_day, sofa_2_totl_impu) %>%
+data_sofa_plot <- data_sofa %>%
+  select(record_id, study_day, sofa_2_totl_impu, sofa_2_unmeasured_reason) %>%
   mutate(study_day = factor(study_day, levels=-2:7)) %>%
-  mutate(sofa_2_totl_impu = cut(sofa_2_totl_impu, breaks=c(-Inf, 1, 6, 9, 12, Inf), 
-    labels=c('0-1 Normal', '2-6 Mild', '7-9 Moderate', '10-12 Severe', '>12 Very Severe'))) %>%
+  mutate(sofa_2_totl_impu = cut(sofa_2_totl_impu, breaks=c(-Inf, 2, 5, 8, 11, Inf), 
+    labels=c('0-2', '2-5', '6-8', '9-11', '≥12'))) %>%
+  mutate(sofa_2_totl_impu = case_when(
+    !is.na(sofa_2_totl_impu) ~ sofa_2_totl_impu,
+    sofa_2_unmeasured_reason %in% c(
+      'Pre-hospital', 
+      'Discharged', 
+      'Discontinued - No further data collection') ~ 'Not in hospital',
+    sofa_2_unmeasured_reason == 'Deceased' ~ 'Dead',
+    TRUE ~ sofa_2_unmeasured_reason
+  )) %>%
+  mutate(sofa_2_totl_impu = factor(sofa_2_totl_impu,
+    levels=c('Not in hospital', '0-2', '2-5', '6-8', '9-11', '≥12', 'Dead'))) %>%
   #mutate(sofa_2_totl_imp = factor(sofa_2_totl_imp)) %>%
   group_by(study_day, sofa_2_totl_impu) %>%
-  summarise(count = n(), .groups='drop') %>%
+  summarise(count = n(), .groups='drop')
+
+data_sofa_plot %>%
   ggplot(aes(x=study_day, y=count, fill=sofa_2_totl_impu)) +
     geom_bar(stat="identity", position='stack') +
     labs(x='Study Day', y='Participant Count', fill='Score', title='SOFA-2 Total Score') +
@@ -550,6 +565,10 @@ data_sofa %>%
     labels = function(z) ifelse(is.na(z), "Unmeasured", z))
 ```
 
+### Plot of measured/imputed/unmeasured scores
+
+The table below that shows the percent of imputed versus measured values across all participant-days in the hospital by organ system score. Note that the 'Not in hospital/Dead' values are not all the same across organ systems. This is because on the day of discharge or death, if the data needed to compute the SOFA-2 scores are available, those values are used and the score is reported even though the participant was discharged or died that day. The same is true for the total score. If all component scores are available on the day of death or discharge, the total score is reported for that day. Renal is an outlier in this regard because new or chronic RRT yields a score of 4, and generally this information is available on the day of death or discharge.
+
 ```{r}
 data_sofa_meas <- data_sofa %>% 
   select(record_id, study_day, matches('sofa_2_(resp|coag|livr|card|cns|rena)$')) %>%
@@ -574,6 +593,22 @@ data_sofa_meas_impu <- full_join(data_sofa_meas, data_sofa_impu,
     !is.na(value_impu) ~ 'Imputed',
     TRUE ~ 'Unmeasured'
   ))
+
+data_sofa_meas_impu %>%
+  mutate(component = case_match(component,
+    "resp" ~ "Respiratory",
+    "coag" ~ "Coagulation",
+    "livr" ~ "Liver",
+    "card" ~ "Cardiovascular",
+    "cns"  ~ "CNS",
+    "rena" ~ "Renal")) %>%
+   select(component, reason) %>%
+  mutate(reason = factor(reason, levels=c('Imputed','Measured'))) %>%
+  tbl_summary(
+    by='component',
+    missing='always',
+    missing_text='Not in hospital/Dead', 
+    label = list('reason' ~ 'Reason'))
 
 data_sofa_meas_impu %>%
   mutate(component = case_match(component,
