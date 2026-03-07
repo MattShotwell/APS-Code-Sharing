@@ -58,6 +58,7 @@ source("R/steroid-dag-variables/calc_sys_pneumonia_0.R")
 source("R/steroid-dag-variables/calc_sys_septic_shock_0.R")
 
 # Functions to calculate STREAMLINED DAG Variables
+source("R/steroid-dag-variables/calc_str_hypotension_sev_0.R")
 source("R/steroid-dag-variables/calc_str_inflamprofile_0.R")
 source("R/steroid-dag-variables/calc_str_def_adrenal_insufficiency_0.R")
 source("R/steroid-dag-variables/calc_str_chron_steroid_moddose_0.R")
@@ -136,6 +137,7 @@ calc_all_steroid_dag_variables <- function(data, dictionary) {
         left_join(wrapper_calc_sys_delirium_0(data), by = "record_id") |>
         left_join(wrapper_calc_sys_global_phys_sev_0(data, dictionary), by = "record_id") |>
         left_join(wrapper_calc_sys_hypotension_sev_0(data), by = "record_id") |>
+        left_join(wrapper_calc_str_hypotension_sev_0(data), by = "record_id") |>
         left_join(wrapper_calc_sys_obstruct_lung_0(data), by = "record_id") |>
         left_join(wrapper_calc_sys_organ_failure_trajectory(data), by = "record_id") |>
         left_join(wrapper_calc_sys_pneumonia_0(data, dictionary), by = "record_id") |>
