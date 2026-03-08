@@ -514,7 +514,8 @@ data_sofa_plot <- data_sofa %>%
   select(record_id, study_day, sofa_2_totl_impu, sofa_2_unmeasured_reason) %>%
   mutate(study_day = factor(study_day, levels=-2:7)) %>%
   mutate(sofa_2_totl_impu = cut(sofa_2_totl_impu, breaks=c(-Inf, 2, 5, 8, 11, Inf), 
-    labels=c('0-2', '2-5', '6-8', '9-11', '≥12'))) %>%
+    labels=c('SOFA-2 score 0-2', 'SOFA-2 score 3-5', 'SOFA-2 score 6-8',
+             'SOFA-2 score 9-11', 'SOFA-2 score ≥12'))) %>%
   mutate(sofa_2_totl_impu = case_when(
     !is.na(sofa_2_totl_impu) ~ sofa_2_totl_impu,
     sofa_2_unmeasured_reason %in% c(
@@ -525,7 +526,7 @@ data_sofa_plot <- data_sofa %>%
     TRUE ~ sofa_2_unmeasured_reason
   )) %>%
   mutate(sofa_2_totl_impu = factor(sofa_2_totl_impu,
-    levels=c('Not in hospital', '0-2', '2-5', '6-8', '9-11', '≥12', 'Dead'))) %>%
+    levels=c('Not in hospital', 'SOFA-2 score 0-2', 'SOFA-2 score 3-5', 'SOFA-2 score 6-8', 'SOFA-2 score 9-11', 'SOFA-2 score ≥12', 'Dead'))) %>%
   #mutate(sofa_2_totl_imp = factor(sofa_2_totl_imp)) %>%
   group_by(study_day, sofa_2_totl_impu) %>%
   summarise(count = n(), .groups='drop')
@@ -533,7 +534,7 @@ data_sofa_plot <- data_sofa %>%
 data_sofa_plot %>%
   ggplot(aes(x=study_day, y=count, fill=sofa_2_totl_impu)) +
     geom_bar(stat="identity", position='stack') +
-    labs(x='Study Day', y='Participant Count', fill='Score', title='SOFA-2 Total Score') +
+    labs(x='Study Day', y='Participant Count', fill='Key', title='SOFA-2 Total Score') +
   scale_fill_brewer(palette = "Accent", na.value='grey50',
     labels = function(z) ifelse(is.na(z), "Unmeasured", z))
 ```
