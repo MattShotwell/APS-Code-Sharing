@@ -23,7 +23,7 @@ source('support_functions.R')
 
 ## load data from N=1000 APS cohort
 ## provides "data", "dictionary" and "codebook" in the working environment
-load('20260302_data.RData')
+load('20251213_data.RData')
 ```
 
 # Contributors
