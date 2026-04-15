@@ -474,6 +474,25 @@ data_sofa <- data %>%
   # timestamp <- format(Sys.time(), format='%Y%m%d%H%M%S')
   # readr::write_csv(data_sofa,
   #   file=paste0(timestamp, '_APS_SOFA_2_data.csv'))
+  # 
+  # data_icu_death <- data %>%
+  #   filter(!duplicated(record_id)) %>%
+  #   select(record_id) %>%
+  #   ## day 0 enrollment date
+  #   ## hospital discharge ventilator data
+  #   left_join(result %>%
+  #     filter(grepl('Hospital Discharge', redcap_event_name)) %>%
+  #     filter(is.na(redcap_repeat_instrument)) %>%
+  #     select(record_id, icu_stdat, icu_discat, icu_endat),
+  #     by='record_id') %>%
+  #   left_join(result %>%
+  #     filter(grepl('Logs', redcap_event_name)) %>%
+  #     filter(is.na(redcap_repeat_instrument)) %>%
+  #     select(record_id, dsdecod, dsstdat, dthind, dthdat),
+  #     by='record_id')
+  # 
+  # readr::write_csv(data_icu_death,
+  #   file=paste0(timestamp, '_APS_ICU_death_data.csv'))
   
   # select(record_id, study_day, 
   #   starts_with('sofa_2'),
